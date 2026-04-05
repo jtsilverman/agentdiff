@@ -1,0 +1,11 @@
+[
+  {"role": "system", "content": "You are a helpful assistant."},
+  {"role": "user", "content": "What's the weather in SF?"},
+  {"role": "assistant", "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": "{\"location\": \"San Francisco\"}"}}]},
+  {"role": "tool", "tool_call_id": "call_1", "content": "72\u00b0F, sunny"},
+  {"role": "assistant", "content": "The weather in San Francisco is 72\u00b0F and sunny."},
+  {"role": "user", "content": "And in NYC?"},
+  {"role": "assistant", "tool_calls": [{"id": "call_2", "type": "function", "function": {"name": "get_weather", "arguments": "{\"location\": \"New York\"}"}}]},
+  {"role": "tool", "tool_call_id": "call_2", "content": "55\u00b0F, cloudy"},
+  {"role": "assistant", "content": "New York is 55\u00b0F and cloudy."}
+]

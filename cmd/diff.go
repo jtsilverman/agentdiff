@@ -85,7 +85,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	// Exit 1 on regression.
 	if result.Overall == diff.VerdictRegression {
-		os.Exit(1)
+		return ErrRegression
 	}
 
 	return nil

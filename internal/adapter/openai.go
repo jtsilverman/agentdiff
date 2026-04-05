@@ -71,25 +71,25 @@ func (o *OpenAIAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string,
 			})
 
 		case "assistant":
-			if len(msg.ToolCalls) > 0 {
-				for _, tc := range msg.ToolCalls {
-					toolNames[tc.ID] = tc.Function.Name
-					args, parseErr := parseToolArgs(tc.Function.Arguments)
-					if parseErr != nil {
-						return nil, nil, fmt.Errorf("message %d: tool_call %q: invalid arguments JSON: %w", i, tc.ID, parseErr)
-					}
-					steps = append(steps, snapshot.Step{
-						Role: "tool_call",
-						ToolCall: &snapshot.ToolCall{
-							Name: tc.Function.Name,
-							Args: args,
-						},
-					})
-				}
-			} else {
+			// Capture text content first (present even when tool_calls exist).
+			if msg.Content != "" {
 				steps = append(steps, snapshot.Step{
 					Role:    "assistant",
 					Content: msg.Content,
+				})
+			}
+			for _, tc := range msg.ToolCalls {
+				toolNames[tc.ID] = tc.Function.Name
+				args, parseErr := parseToolArgs(tc.Function.Arguments)
+				if parseErr != nil {
+					return nil, nil, fmt.Errorf("message %d: tool_call %q: invalid arguments JSON: %w", i, tc.ID, parseErr)
+				}
+				steps = append(steps, snapshot.Step{
+					Role: "tool_call",
+					ToolCall: &snapshot.ToolCall{
+						Name: tc.Function.Name,
+						Args: args,
+					},
 				})
 			}
 

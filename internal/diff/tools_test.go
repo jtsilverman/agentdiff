@@ -274,14 +274,3 @@ func TestJaccardArgs(t *testing.T) {
 	}
 }
 
-func TestNormalizeScore(t *testing.T) {
-	if NormalizeScore(-0.5) != 0.0 {
-		t.Error("negative should clamp to 0")
-	}
-	if NormalizeScore(1.5) != 1.0 {
-		t.Error("above 1 should clamp to 1")
-	}
-	if NormalizeScore(0.5) != 0.5 {
-		t.Error("0.5 should stay 0.5")
-	}
-}

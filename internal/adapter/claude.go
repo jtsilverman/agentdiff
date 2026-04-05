@@ -39,6 +39,7 @@ func (c *ClaudeAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string,
 	toolNames := map[string]string{}
 
 	scanner := bufio.NewScanner(bytes.NewReader(input))
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line size for large tool outputs
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++

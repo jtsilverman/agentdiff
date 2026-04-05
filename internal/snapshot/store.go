@@ -88,9 +88,13 @@ func (s *Store) Load(nameOrID string) (Snapshot, error) {
 	// Scan for ID prefix match.
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
-		return Snapshot{}, fmt.Errorf("snapshot not found: %s", nameOrID)
+		if os.IsNotExist(err) {
+			return Snapshot{}, fmt.Errorf("snapshot not found: %s", nameOrID)
+		}
+		return Snapshot{}, fmt.Errorf("read snapshot dir: %w", err)
 	}
 
+	var matches []Snapshot
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
@@ -104,8 +108,15 @@ func (s *Store) Load(nameOrID string) (Snapshot, error) {
 			continue
 		}
 		if strings.HasPrefix(snap.ID, nameOrID) {
-			return snap, nil
+			matches = append(matches, snap)
 		}
+	}
+
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return Snapshot{}, fmt.Errorf("ambiguous snapshot ID prefix %q: matches %d snapshots", nameOrID, len(matches))
 	}
 
 	return Snapshot{}, fmt.Errorf("snapshot not found: %s", nameOrID)

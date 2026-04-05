@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -35,7 +36,7 @@ func DefaultConfig() Config {
 func Load(dir string) (Config, error) {
 	cfg := DefaultConfig()
 
-	path := dir + "/.agentdiff.yaml"
+	path := filepath.Join(dir, ".agentdiff.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

@@ -315,35 +315,4 @@ func serializeValue(v interface{}) string {
 	}
 }
 
-// extractToolCallSteps returns steps that have tool calls (for external use).
-func extractToolCallSteps(steps []snapshot.Step) []snapshot.Step {
-	var result []snapshot.Step
-	for _, s := range steps {
-		if s.ToolCall != nil {
-			result = append(result, s)
-		}
-	}
-	return result
-}
-
-// sortedKeys returns sorted keys from a string-keyed map (for deterministic output).
-func sortedKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// NormalizeScore clamps a score to [0.0, 1.0].
-func NormalizeScore(score float64) float64 {
-	if score < 0.0 {
-		return 0.0
-	}
-	if score > 1.0 {
-		return 1.0
-	}
-	return score
-}
 

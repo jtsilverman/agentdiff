@@ -53,20 +53,20 @@ func runReport(cmd *cobra.Command, args []string) error {
 	// Compare.
 	result := diff.Compare(snapA, snapB, cfg)
 
-	// Output.
+	// Output (verbose: per-step breakdown, arg-level changes, text excerpts).
 	if jsonOutput {
 		if err := report.JSON(result, os.Stdout); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 	} else {
-		if err := report.Terminal(result, os.Stdout); err != nil {
+		if err := report.TerminalVerbose(result, snapA, snapB, os.Stdout); err != nil {
 			return fmt.Errorf("write terminal report: %w", err)
 		}
 	}
 
 	// Exit 1 on regression.
 	if result.Overall == diff.VerdictRegression {
-		os.Exit(1)
+		return ErrRegression
 	}
 
 	return nil

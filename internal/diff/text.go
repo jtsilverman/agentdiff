@@ -64,7 +64,7 @@ func CompareSteps(a, b []snapshot.Step) StepsDiffResult {
 
 // Compare runs all comparisons and produces a DiffResult with an overall verdict.
 func Compare(a, b snapshot.Snapshot, cfg config.Config) DiffResult {
-	toolDiff := CompareTools(a.Steps, b.Steps)
+	toolDiff, diag := CompareToolsWithDiagnostics(a.Steps, b.Steps)
 	textDiff := CompareText(a.Steps, b.Steps)
 	stepsDiff := CompareSteps(a.Steps, b.Steps)
 
@@ -81,12 +81,13 @@ func Compare(a, b snapshot.Snapshot, cfg config.Config) DiffResult {
 	}
 
 	return DiffResult{
-		Snapshot1: a.ID,
-		Snapshot2: b.ID,
-		Overall:   overall,
-		ToolDiff:  toolDiff,
-		TextDiff:  textDiff,
-		StepsDiff: stepsDiff,
+		Snapshot1:   a.ID,
+		Snapshot2:   b.ID,
+		Overall:     overall,
+		ToolDiff:    toolDiff,
+		TextDiff:    textDiff,
+		StepsDiff:   stepsDiff,
+		Diagnostics: &diag,
 	}
 }
 

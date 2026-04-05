@@ -35,6 +35,9 @@ func Execute() {
 		if err == ErrRegression {
 			os.Exit(1)
 		}
+		if err == ErrStyleDrift {
+			os.Exit(2)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

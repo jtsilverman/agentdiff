@@ -1,0 +1,81 @@
+name: "AgentDiff CI"
+description: "Compare agent snapshots against baselines and post regression reports"
+
+inputs:
+  baseline_path:
+    description: "Path to baseline file (e.g., .agentdiff/baselines/main.json.gz)"
+    required: false
+    default: ""
+  fail_on_style_drift:
+    description: "Fail CI on text-only regressions (style drift)"
+    required: false
+    default: "false"
+  threshold_tool:
+    description: "Tool score threshold for regression (0.0-1.0)"
+    required: false
+    default: "0.3"
+  threshold_text:
+    description: "Text score threshold for regression (0.0-1.0)"
+    required: false
+    default: "0.5"
+  threshold_steps:
+    description: "Step delta threshold for regression"
+    required: false
+    default: "5"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.24"
+
+    - name: Install AgentDiff
+      shell: bash
+      run: go install github.com/jtsilverman/agentdiff@latest
+
+    - name: Add Go bin to PATH
+      shell: bash
+      run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Write config if not present
+      shell: bash
+      run: |
+        if [ ! -f .agentdiff.yaml ]; then
+        cat > .agentdiff.yaml << 'AGENTDIFF_EOF'
+        thresholds:
+          tool_score: ${{ inputs.threshold_tool }}
+          text_score: ${{ inputs.threshold_text }}
+          step_delta: ${{ inputs.threshold_steps }}
+        ci:
+          baseline_path: "${{ inputs.baseline_path }}"
+          fail_on_style_drift: ${{ inputs.fail_on_style_drift }}
+        AGENTDIFF_EOF
+        fi
+
+    - name: Run AgentDiff CI
+      id: agentdiff
+      shell: bash
+      run: |
+        set +e
+        BASELINE_FLAG=""
+        if [ -n "${{ inputs.baseline_path }}" ]; then
+          BASELINE_FLAG="--baseline ${{ inputs.baseline_path }}"
+        fi
+        agentdiff ci --output agentdiff-report.md $BASELINE_FLAG
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: Post PR comment
+      if: github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        path: agentdiff-report.md
+        header: agentdiff
+
+    - name: Exit with AgentDiff result
+      shell: bash
+      run: |
+        if [ "${{ steps.agentdiff.outputs.exit_code }}" = "1" ]; then
+          exit 1
+        fi

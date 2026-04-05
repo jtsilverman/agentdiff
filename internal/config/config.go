@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,7 +11,21 @@ import (
 
 // Config holds all agentdiff configuration.
 type Config struct {
-	Thresholds Thresholds `yaml:"thresholds"`
+	Thresholds Thresholds     `yaml:"thresholds"`
+	CI         CIConfig       `yaml:"ci"`
+	Baseline   BaselineConfig `yaml:"baseline"`
+}
+
+// CIConfig holds CI/CD integration settings.
+type CIConfig struct {
+	BaselinePath     string `yaml:"baseline_path"`
+	FailOnStyleDrift bool   `yaml:"fail_on_style_drift"`
+}
+
+// BaselineConfig holds statistical baseline settings.
+type BaselineConfig struct {
+	Runs       int     `yaml:"runs"`
+	Confidence float64 `yaml:"confidence"`
 }
 
 // Thresholds defines regression detection sensitivity.
@@ -27,6 +42,14 @@ func DefaultConfig() Config {
 			ToolScore: 0.3,
 			TextScore: 0.5,
 			StepDelta: 5,
+		},
+		CI: CIConfig{
+			BaselinePath:     "",
+			FailOnStyleDrift: false,
+		},
+		Baseline: BaselineConfig{
+			Runs:       5,
+			Confidence: 0.95,
 		},
 	}
 }
@@ -64,6 +87,29 @@ func Load(dir string) (Config, error) {
 		}
 	}
 
+	if fileCfg.CI != nil {
+		if v, ok := fileCfg.CI["baseline_path"]; ok {
+			cfg.CI.BaselinePath = toString(v)
+		}
+		if v, ok := fileCfg.CI["fail_on_style_drift"]; ok {
+			cfg.CI.FailOnStyleDrift = toBool(v)
+		}
+	}
+
+	if fileCfg.Baseline != nil {
+		if v, ok := fileCfg.Baseline["runs"]; ok {
+			cfg.Baseline.Runs = toInt(v)
+		}
+		if v, ok := fileCfg.Baseline["confidence"]; ok {
+			cfg.Baseline.Confidence = toFloat64(v)
+		}
+	}
+
+	// Validate confidence is in (0.0, 1.0).
+	if cfg.Baseline.Confidence <= 0.0 || cfg.Baseline.Confidence >= 1.0 {
+		return cfg, fmt.Errorf("baseline.confidence must be in (0.0, 1.0), got %v", cfg.Baseline.Confidence)
+	}
+
 	return cfg, nil
 }
 
@@ -71,6 +117,8 @@ func Load(dir string) (Config, error) {
 // were explicitly set vs absent.
 type fileConfig struct {
 	Thresholds map[string]interface{} `yaml:"thresholds"`
+	CI         map[string]interface{} `yaml:"ci"`
+	Baseline   map[string]interface{} `yaml:"baseline"`
 }
 
 func toFloat64(v interface{}) float64 {
@@ -93,4 +141,18 @@ func toInt(v interface{}) int {
 	default:
 		return 0
 	}
+}
+
+func toString(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func toBool(v interface{}) bool {
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return false
 }

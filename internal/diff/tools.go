@@ -13,10 +13,23 @@ const maxToolCalls = 1000
 // It extracts tool call names, computes edit distance, detects added/removed
 // tools, checks for reordering, and scores argument similarity.
 func CompareTools(a, b []snapshot.Step) ToolDiffResult {
-	seqA := extractToolNames(a)
-	seqB := extractToolNames(b)
+	result, _ := CompareToolsWithDiagnostics(a, b)
+	return result
+}
 
-	// Truncate to last 1000 if needed.
+// CompareToolsWithDiagnostics computes a ToolDiffResult and Diagnostics between
+// two step sequences. It collapses retries, aligns collapsed tool sequences,
+// and derives edit distance, arg scores, and diagnostic info from the alignment.
+func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnostics) {
+	// Collapse retries on both sides.
+	collapsedA, remapA, groupsA := CollapseRetries(a)
+	collapsedB, remapB, groupsB := CollapseRetries(b)
+
+	// Extract tool names from collapsed steps.
+	seqA := extractToolNames(collapsedA)
+	seqB := extractToolNames(collapsedB)
+
+	// Truncate to last maxToolCalls if needed.
 	if len(seqA) > maxToolCalls {
 		seqA = seqA[len(seqA)-maxToolCalls:]
 	}
@@ -26,11 +39,19 @@ func CompareTools(a, b []snapshot.Step) ToolDiffResult {
 
 	// Both empty: identical.
 	if len(seqA) == 0 && len(seqB) == 0 {
+		diag := Diagnostics{
+			Alignment:       []AlignedPair{},
+			FirstDivergence: -1,
+			Diverged:        false,
+			RetryGroups:     mergeRetryGroups(groupsA, groupsB),
+			RemapA:          remapA,
+			RemapB:          remapB,
+		}
 		return ToolDiffResult{
 			Added:   []string{},
 			Removed: []string{},
 			Score:   0.0,
-		}
+		}, diag
 	}
 
 	// One empty, one not: completely different.
@@ -40,15 +61,35 @@ func CompareTools(a, b []snapshot.Step) ToolDiffResult {
 		if len(seqB) > maxLen {
 			maxLen = len(seqB)
 		}
+		// Build alignment for the non-empty side.
+		alignResult := Align(seqA, seqB)
+		diag := Diagnostics{
+			Alignment:       alignResult.Pairs,
+			FirstDivergence: alignResult.FirstDivergence,
+			Diverged:        alignResult.Diverged,
+			RetryGroups:     mergeRetryGroups(groupsA, groupsB),
+			RemapA:          remapA,
+			RemapB:          remapB,
+		}
 		return ToolDiffResult{
 			Added:    added,
 			Removed:  removed,
 			EditDist: maxLen,
 			Score:    1.0,
+		}, diag
+	}
+
+	// Align collapsed tool name sequences.
+	alignResult := Align(seqA, seqB)
+
+	// Derive editDist from alignment: count non-match ops.
+	editDist := 0
+	for _, p := range alignResult.Pairs {
+		if p.Op != AlignMatch {
+			editDist++
 		}
 	}
 
-	editDist := levenshtein(seqA, seqB)
 	added, removed := setDifference(seqA, seqB)
 	reordered := detectReordered(seqA, seqB)
 
@@ -62,11 +103,20 @@ func CompareTools(a, b []snapshot.Step) ToolDiffResult {
 		seqScore = 1.0
 	}
 
-	// Argument score: compare args at aligned positions with matching names.
-	argScore := computeArgScore(a, b, seqA, seqB)
+	// Argument score: compare args using alignment pairs.
+	argScore := computeAlignedArgScore(a, alignResult.Pairs, remapA, remapB, collapsedA, collapsedB)
 
 	// Final score = weighted average.
 	score := 0.6*seqScore + 0.4*argScore
+
+	diag := Diagnostics{
+		Alignment:       alignResult.Pairs,
+		FirstDivergence: alignResult.FirstDivergence,
+		Diverged:        alignResult.Diverged,
+		RetryGroups:     mergeRetryGroups(groupsA, groupsB),
+		RemapA:          remapA,
+		RemapB:          remapB,
+	}
 
 	return ToolDiffResult{
 		Added:     added,
@@ -74,7 +124,7 @@ func CompareTools(a, b []snapshot.Step) ToolDiffResult {
 		Reordered: reordered,
 		EditDist:  editDist,
 		Score:     score,
-	}
+	}, diag
 }
 
 // extractToolNames returns the ordered sequence of tool call names from steps.
@@ -315,4 +365,98 @@ func serializeValue(v interface{}) string {
 	}
 }
 
+// computeAlignedArgScore compares arguments using alignment pairs. For AlignMatch
+// pairs, it uses remap arrays to index into the ORIGINAL step slices for arg
+// comparison via jaccardArgs. Returns 0.0 if all matching args are identical,
+// 1.0 if completely different.
+func computeAlignedArgScore(origA []snapshot.Step, pairs []AlignedPair, remapA, remapB []int, collapsedA, collapsedB []snapshot.Step) float64 {
+	toolCallsA := extractToolCalls(collapsedA)
+	toolCallsB := extractToolCalls(collapsedB)
 
+	// Alignment indices correspond to the tool-call-only subsequence of collapsed
+	// steps. The collapsed steps hold the first representative of each retry group,
+	// which is the original step at remap[collapsedIdx]. Using collapsed tool calls
+	// directly is equivalent to remapping through originals.
+	_ = remapA
+	_ = remapB
+
+	var totalSim float64
+	var count int
+
+	for _, p := range pairs {
+		if p.Op != AlignMatch {
+			continue
+		}
+		if p.IndexA >= len(toolCallsA) || p.IndexB >= len(toolCallsB) {
+			continue
+		}
+
+		sim := jaccardArgs(toolCallsA[p.IndexA].Args, toolCallsB[p.IndexB].Args)
+		totalSim += sim
+		count++
+	}
+
+	if count == 0 {
+		if len(toolCallsA) > 0 || len(toolCallsB) > 0 {
+			return 1.0
+		}
+		return 0.0
+	}
+
+	avgSim := totalSim / float64(count)
+	return 1.0 - avgSim
+}
+
+// mergeRetryGroups combines retry groups from both sides by matching on ToolName.
+// Groups from side A have CountA/StartA populated; groups from B have CountB/StartB.
+// If the same tool name appears in both, they are merged into one group.
+func mergeRetryGroups(groupsA, groupsB []RetryGroup) []RetryGroup {
+	if len(groupsA) == 0 && len(groupsB) == 0 {
+		return []RetryGroup{}
+	}
+
+	// Index groups from A by tool name. Multiple groups with same tool are kept separate.
+	merged := make([]RetryGroup, 0, len(groupsA)+len(groupsB))
+	usedB := make([]bool, len(groupsB))
+
+	for _, ga := range groupsA {
+		found := false
+		for j, gb := range groupsB {
+			if !usedB[j] && gb.ToolName == ga.ToolName {
+				merged = append(merged, RetryGroup{
+					ToolName: ga.ToolName,
+					CountA:   ga.CountA,
+					CountB:   gb.CountA, // CollapseRetries always puts count in CountA
+					StartA:   ga.StartA,
+					StartB:   gb.StartA, // CollapseRetries always puts start in StartA
+				})
+				usedB[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			merged = append(merged, RetryGroup{
+				ToolName: ga.ToolName,
+				CountA:   ga.CountA,
+				CountB:   0,
+				StartA:   ga.StartA,
+				StartB:   -1,
+			})
+		}
+	}
+
+	for j, gb := range groupsB {
+		if !usedB[j] {
+			merged = append(merged, RetryGroup{
+				ToolName: gb.ToolName,
+				CountA:   0,
+				CountB:   gb.CountA,
+				StartA:   -1,
+				StartB:   gb.StartA,
+			})
+		}
+	}
+
+	return merged
+}

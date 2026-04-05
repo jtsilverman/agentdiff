@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
 
 var binPath string
@@ -168,5 +171,250 @@ func TestIntegrationDiffJSON(t *testing.T) {
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(stdout), &parsed); err != nil {
 		t.Fatalf("expected valid JSON output, got parse error: %v\noutput: %s", err, stdout)
+	}
+}
+
+// saveTestSnapshot is a helper that creates and saves a snapshot to the given workDir.
+func saveTestSnapshot(t *testing.T, workDir, name string, steps []snapshot.Step) {
+	t.Helper()
+	store := snapshot.NewStore(workDir)
+	_, err := store.Save(snapshot.Snapshot{
+		Name:      name,
+		Source:    "test",
+		Timestamp: time.Now(),
+		Steps:     steps,
+	})
+	if err != nil {
+		t.Fatalf("save snapshot %q: %v", name, err)
+	}
+}
+
+func TestIntegrationAlignment(t *testing.T) {
+	workDir := makeWorkDir(t)
+
+	// Snapshot A: read_file, write_file, run_test
+	stepsA := []snapshot.Step{
+		{Role: "assistant", Content: "reading", ToolCall: &snapshot.ToolCall{Name: "read_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "read_file", Output: "contents"}},
+		{Role: "assistant", Content: "writing", ToolCall: &snapshot.ToolCall{Name: "write_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "write_file", Output: "ok"}},
+		{Role: "assistant", Content: "testing", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: map[string]interface{}{"cmd": "go test"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "run_test", Output: "PASS"}},
+	}
+
+	// Snapshot B: read_file, search (INSERTED), write_file, run_test
+	stepsB := []snapshot.Step{
+		{Role: "assistant", Content: "reading", ToolCall: &snapshot.ToolCall{Name: "read_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "read_file", Output: "contents"}},
+		{Role: "assistant", Content: "searching", ToolCall: &snapshot.ToolCall{Name: "search", Args: map[string]interface{}{"query": "foo"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "search", Output: "found"}},
+		{Role: "assistant", Content: "writing", ToolCall: &snapshot.ToolCall{Name: "write_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "write_file", Output: "ok"}},
+		{Role: "assistant", Content: "testing", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: map[string]interface{}{"cmd": "go test"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "run_test", Output: "PASS"}},
+	}
+
+	saveTestSnapshot(t, workDir, "align-a", stepsA)
+	saveTestSnapshot(t, workDir, "align-b", stepsB)
+
+	stdout, stderr, exitCode := runAgentDiff(t, workDir, "diff", "--json", "align-a", "align-b")
+	_ = stderr
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse JSON: %v\nstdout: %s", err, stdout)
+	}
+
+	diag, ok := result["diagnostics"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected diagnostics object, got: %v", result["diagnostics"])
+	}
+
+	// Verify alignment contains an insert op (op=2).
+	alignment, ok := diag["alignment"].([]interface{})
+	if !ok || len(alignment) == 0 {
+		t.Fatalf("expected non-empty alignment array, got: %v", diag["alignment"])
+	}
+
+	hasInsert := false
+	for _, entry := range alignment {
+		pair, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if op, ok := pair["op"].(float64); ok && int(op) == 2 {
+			hasInsert = true
+			break
+		}
+	}
+	if !hasInsert {
+		t.Fatalf("expected alignment to contain an insert op (op=2), got: %v", alignment)
+	}
+
+	// Verify first_divergence >= 0.
+	firstDiv, ok := diag["first_divergence"].(float64)
+	if !ok || int(firstDiv) < 0 {
+		t.Fatalf("expected first_divergence >= 0, got: %v", diag["first_divergence"])
+	}
+
+	// Exit code should be 1 (regression) since there's a tool difference.
+	_ = exitCode
+}
+
+func TestIntegrationRetryCollapse(t *testing.T) {
+	workDir := makeWorkDir(t)
+
+	// Both snapshots have 3 consecutive tool call steps with same name AND same args
+	// (retry sequence). Steps must be consecutive with ToolCall set for CollapseRetries
+	// to detect the run.
+	retryArgs := map[string]interface{}{"cmd": "npm test"}
+
+	stepsA := []snapshot.Step{
+		{Role: "assistant", Content: "try 1", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+		{Role: "assistant", Content: "try 2", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+		{Role: "assistant", Content: "try 3", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+	}
+
+	stepsB := []snapshot.Step{
+		{Role: "assistant", Content: "try 1", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+		{Role: "assistant", Content: "try 2", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+		{Role: "assistant", Content: "try 3", ToolCall: &snapshot.ToolCall{Name: "run_test", Args: retryArgs}},
+	}
+
+	saveTestSnapshot(t, workDir, "retry-a", stepsA)
+	saveTestSnapshot(t, workDir, "retry-b", stepsB)
+
+	stdout, _, _ := runAgentDiff(t, workDir, "diff", "--json", "retry-a", "retry-b")
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse JSON: %v\nstdout: %s", err, stdout)
+	}
+
+	diag, ok := result["diagnostics"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected diagnostics object, got: %v", result["diagnostics"])
+	}
+
+	retryGroups, ok := diag["retry_groups"].([]interface{})
+	if !ok || len(retryGroups) == 0 {
+		t.Fatalf("expected non-empty retry_groups array, got: %v", diag["retry_groups"])
+	}
+}
+
+func TestIntegrationCI(t *testing.T) {
+	workDir := makeWorkDir(t)
+
+	// Create identical steps for baseline and current snapshots.
+	steps := []snapshot.Step{
+		{Role: "assistant", Content: "reading", ToolCall: &snapshot.ToolCall{Name: "read_file", Args: map[string]interface{}{"path": "main.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "read_file", Output: "package main"}},
+	}
+
+	// Save current snapshot.
+	saveTestSnapshot(t, workDir, "ci-snap", steps)
+
+	// Create baseline with the same snapshot (identical = should pass).
+	bs := snapshot.NewBaselineStore(workDir)
+	baselineSnap := snapshot.Snapshot{
+		Name:      "ci-snap",
+		Source:    "test",
+		Timestamp: time.Now(),
+		Steps:     steps,
+	}
+	baseline := snapshot.Baseline{
+		Name:      "ci-baseline",
+		Snapshots: []snapshot.Snapshot{baselineSnap},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := bs.Save(baseline); err != nil {
+		t.Fatalf("save baseline: %v", err)
+	}
+
+	// Write .agentdiff.yaml with ci.baseline_path pointing to the baseline file.
+	baselinePath := filepath.Join(workDir, ".agentdiff", "baselines", "ci-baseline.json.gz")
+	yamlContent := "ci:\n  baseline_path: " + baselinePath + "\n"
+	if err := os.WriteFile(filepath.Join(workDir, ".agentdiff.yaml"), []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	reportPath := filepath.Join(workDir, "report.md")
+	_, stderr, exitCode := runAgentDiff(t, workDir, "ci", "--output", reportPath)
+
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0 for identical baseline/current, got %d; stderr: %s", exitCode, stderr)
+	}
+
+	// Verify report.md exists and contains markdown table headers.
+	reportData, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	reportStr := string(reportData)
+	if !strings.Contains(reportStr, "| Metric |") {
+		t.Fatalf("expected report to contain '| Metric |', got:\n%s", reportStr)
+	}
+}
+
+func TestIntegrationBaselineRoundTrip(t *testing.T) {
+	workDir := makeWorkDir(t)
+
+	// Create two slightly different snapshots.
+	stepsA := []snapshot.Step{
+		{Role: "assistant", Content: "reading", ToolCall: &snapshot.ToolCall{Name: "read_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "read_file", Output: "package a"}},
+		{Role: "assistant", Content: "writing", ToolCall: &snapshot.ToolCall{Name: "write_file", Args: map[string]interface{}{"path": "a.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "write_file", Output: "ok"}},
+	}
+	stepsB := []snapshot.Step{
+		{Role: "assistant", Content: "reading", ToolCall: &snapshot.ToolCall{Name: "read_file", Args: map[string]interface{}{"path": "b.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "read_file", Output: "package b"}},
+		{Role: "assistant", Content: "writing", ToolCall: &snapshot.ToolCall{Name: "write_file", Args: map[string]interface{}{"path": "b.go"}}},
+		{Role: "tool", ToolResult: &snapshot.ToolResult{Name: "write_file", Output: "ok"}},
+	}
+
+	// Save both snapshots via store (so baseline record can find them).
+	saveTestSnapshot(t, workDir, "snap-a", stepsA)
+	saveTestSnapshot(t, workDir, "snap-b", stepsB)
+
+	// Record both into a baseline via CLI.
+	_, stderr1, exit1 := runAgentDiff(t, workDir, "baseline", "record", "test-bl", "snap-a")
+	if exit1 != 0 {
+		t.Fatalf("baseline record snap-a failed (exit %d): %s", exit1, stderr1)
+	}
+
+	_, stderr2, exit2 := runAgentDiff(t, workDir, "baseline", "record", "test-bl", "snap-b")
+	if exit2 != 0 {
+		t.Fatalf("baseline record snap-b failed (exit %d): %s", exit2, stderr2)
+	}
+
+	// Compare snap-a against baseline with JSON output.
+	stdout, stderr3, _ := runAgentDiff(t, workDir, "baseline", "compare", "test-bl", "snap-a", "--json")
+
+	if stdout == "" {
+		t.Fatalf("expected JSON output, got empty; stderr: %s", stderr3)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse JSON: %v\nstdout: %s", err, stdout)
+	}
+
+	// Verify stats contain tool_score with mean, lower, upper.
+	statsObj, ok := result["stats"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected stats object, got: %v", result["stats"])
+	}
+
+	toolScore, ok := statsObj["tool_score"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected tool_score object, got: %v", statsObj["tool_score"])
+	}
+
+	for _, field := range []string{"mean", "lower", "upper"} {
+		if _, ok := toolScore[field]; !ok {
+			t.Fatalf("expected tool_score to have %q field, got: %v", field, toolScore)
+		}
 	}
 }

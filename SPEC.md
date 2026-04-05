@@ -1,470 +1,437 @@
-# AgentDiff v2
+# AgentDiff v3
 
-**pytest for AI agents.** Snapshot behavior, diff across changes, catch regressions -- now with edit-distance alignment, CI integration, and statistical baselines.
+**pytest for AI agents.** New adapters for OpenAI Agents SDK, LangChain, and custom formats. DBSCAN clustering to identify behavioral strategies in baselines.
 
 ## Problem
 
-AgentDiff v1 compares agent traces positionally (step i to step i), so a single tool insertion shifts all downstream comparisons and produces noisy false regressions. There is no CI integration for automated regression detection in pull requests, and single-run comparisons are inherently noisy for non-deterministic agents. V2 solves all three: accurate step alignment, GitHub Action CI, and multi-run statistical baselines.
+AgentDiff supports only Claude and OpenAI conversation logs, leaving users of the OpenAI Agents SDK, LangChain, and custom frameworks unable to snapshot their agent traces. Additionally, baselines accumulate runs with no way to identify distinct behavioral strategies (e.g., an agent that sometimes searches then summarizes vs. one that directly answers), making regression signals noisy when the agent legitimately takes different paths.
 
 ## Solution
 
-Three additive features layered onto the existing v1 codebase (3.5K lines, 57 tests, Go 1.24, cobra CLI):
+Add three new adapters following the existing registry pattern, plus a DBSCAN clustering package that groups baseline snapshots by tool-call sequence similarity.
 
-1. **Diagnostics (edit-distance alignment).** Replace positional alignment with Levenshtein-based alignment (edit distance with substitution) in CompareTools and TerminalVerbose. New `Align` function backtraces the full DP matrix to produce step-pair mappings with match/substitute/insert/delete operations. Retry-aware heuristic collapses consecutive same-tool-name-AND-same-args calls before alignment. Adds `Diagnostics` field to `DiffResult` (additive -- no breaking JSON change).
-
-2. **GitHub Action CI.** New `agentdiff ci` subcommand reads a CI config section from `.agentdiff.yaml`, runs diffs against committed baselines, outputs GitHub-flavored markdown. Separate exit codes for functional regressions vs stylistic drift. `action.yml` wraps the binary for the Actions marketplace.
-
-3. **Multi-Run Statistical Baselines.** New `agentdiff baseline` subcommand family (record/compare/list). Bootstrap confidence intervals in pure Go. Component-aware weighting based on coefficient of variation.
-
-**Key architectural decisions:**
-- Zero new external deps. Stats are pure Go (no gonum). Action uses pre-built binary.
-- `DiffResult` only gains fields, never loses them. Existing JSON consumers unaffected.
-- Existing `levenshtein` stays as-is. New `Align` function uses full DP matrix (not 2-row) to enable backtrace. Algorithm is Levenshtein edit distance (match/substitute/insert/delete), NOT LCS. This produces a single deterministic optimal alignment with consistent substitution handling.
-- `CollapseRetries` returns `remapA []int, remapB []int` arrays mapping collapsed indices back to original step indices, so terminal reports and arg comparison can reference the original snapshot steps.
-- Baselines are gzip-compressed JSON in `.agentdiff/baselines/`.
-- Nobody else does step-level behavioral alignment for agent testing. This is the differentiator.
+**Architecture decisions:**
+- **Adapter registry pattern (existing):** Each adapter is a single file implementing `Parse(input []byte) ([]Step, map[string]string, error)`. Registration in `adapter.go` init(). Detection in `detect.go`. Proven pattern, no changes needed.
+- **Generic adapter uses config, not code:** Users define field mappings in `.agentdiff.yaml` with dot-notation paths for nested JSON. Selected explicitly via `--adapter generic` (not auto-detected, since any JSONL could match).
+- **DBSCAN over k-means:** Agent strategies are non-spherical clusters with unknown count. DBSCAN finds arbitrary-shaped clusters and identifies noise (outlier traces). No need to pre-specify k.
+- **Levenshtein reuse:** Export the existing `levenshtein()` and `extractToolNames()` from `internal/diff/tools.go` for the cluster package. Zero new dependencies.
+- **Pure Go, zero new deps:** DBSCAN is ~80 lines. Epsilon auto-selection is ~50 lines. Not worth an external library.
+- **Scale note:** DBSCAN distance matrix is O(n^2). Expected baseline size: 5-100 snapshots. For baselines >200 snapshots, recommend setting `--epsilon` manually to avoid slow auto-selection.
 
 ## Scope
 
 **Building:**
-- Levenshtein edit-distance alignment with backtrace (step-pair mapping, insertions, deletions, substitutions)
-- Argument-aware retry collapse heuristic (consecutive same-tool AND same-args calls)
-- Divergence detection (traces sharing <20% alignment marked "diverged")
-- Diagnostics in DiffResult JSON output and terminal reports
-- `agentdiff ci` subcommand with markdown output and exit code semantics
-- `action.yml` for GitHub Actions marketplace
-- `agentdiff baseline record/compare/list` subcommands
-- Bootstrap CI computation (percentile method, B=10,000)
-- Component-aware weighting (CV-based threshold adjustment)
+- OpenAI Agents SDK adapter (hierarchical span JSON with nested `children`)
+- LangChain callback adapter (JSONL with `on_tool_start`/`on_tool_end` events)
+- Generic JSONL adapter (configurable field mapping via `.agentdiff.yaml`)
+- Auto-detection updates for Agents SDK and LangChain formats
+- `internal/cluster/` package: DBSCAN algorithm, snapshot clustering, epsilon auto-selection
+- `agentdiff cluster <baseline>` subcommand with terminal and JSON output
+- `agentdiff cluster compare <baseline> <snapshot>` to match a snapshot against known strategies
+- Config extensions for `adapter.generic` and `cluster` sections
+- Testdata fixtures for all three new formats
+- Integration tests for record + cluster round-trips
 
 **Not building:**
-- Live agent execution from CI (users record traces in their own harness)
-- GitHub Check Runs API annotations (defer to v3, adds GitHub API dependency)
-- Bimodal strategy detection / clustering (defer, needs real usage data)
-- Schema evolution detection (defer)
-- Web UI or dashboard
-- `agentdiff accept` for updating golden snapshots
+- `agentdiff run` (execution orchestration)
+- VCR-style tool response mocking (v4)
+- OTel/OpenTelemetry ingestion (unstable spec)
+- Web UI / dashboard
+- GitHub Check Runs API annotations
+- Vercel AI SDK adapter (existing OpenAI adapter handles it)
 
-**Ship target:** GitHub (jtsilverman/agentdiff), tag v0.2.0
+**Ship target:** GitHub (jtsilverman/agentdiff), tag v0.3.0
 
 ## Stack
 
-| Component | Choice | Why |
-|-----------|--------|-----|
-| Language | Go 1.24 | Existing codebase. Single binary, fast, CI-friendly. |
-| CLI | cobra v1.10 | Existing. Proven subcommand pattern. |
-| Config | gopkg.in/yaml.v3 | Existing. Extends `.agentdiff.yaml`. |
-| Compression | compress/gzip (stdlib) | Baseline storage. No new deps. |
-| Stats | math/rand + sort (stdlib) | Bootstrap resampling. No gonum needed. |
-| Test | stdlib testing | Existing. No external test deps. |
-
-Zero external dependencies beyond cobra + yaml (unchanged from v1).
+Go 1.24, Cobra, gopkg.in/yaml.v3, stdlib only. Same as v2. Zero new external dependencies.
 
 ## Architecture
 
-### New/Modified Files
+### File Structure (new/modified only)
 
 ```
 agentdiff/
-  cmd/
-    root.go              -- EXISTING (unchanged)
-    record.go            -- EXISTING (unchanged)
-    diff.go              -- EXISTING (unchanged)
-    report.go            -- MODIFY: pass diagnostics to TerminalVerbose
-    list.go              -- EXISTING (unchanged)
-    ci.go                -- NEW: agentdiff ci subcommand
-    ci_test.go           -- NEW
-    baseline.go          -- NEW: agentdiff baseline record/compare/list
-    baseline_test.go     -- NEW
-    integration_test.go  -- MODIFY: add v2 integration tests
   internal/
-    adapter/             -- EXISTING (unchanged)
+    adapter/
+      adapter.go              # MODIFY: register agents_sdk + langchain
+      detect.go               # MODIFY: add detection for agents_sdk + langchain
+      detect_test.go          # MODIFY: add detection tests
+      agents_sdk.go           # NEW: OpenAI Agents SDK span parser
+      agents_sdk_test.go      # NEW
+      langchain.go            # NEW: LangChain callback JSONL parser
+      langchain_test.go       # NEW
+      generic.go              # NEW: configurable JSONL parser
+      generic_test.go         # NEW
     diff/
-      diff.go            -- MODIFY: add Diagnostics field to DiffResult
-      align.go           -- NEW: Levenshtein alignment, backtrace, retry collapse
-      align_test.go      -- NEW
-      tools.go           -- MODIFY: use alignment in CompareTools
-      tools_test.go      -- MODIFY: update assertions for alignment-based scoring
-      text.go            -- MODIFY: Compare() populates diagnostics
-      text_test.go       -- EXISTING (may need assertion updates)
-      diff_test.go       -- MODIFY: add diagnostics assertions
+      tools.go                # MODIFY: export Levenshtein + ExtractToolNames
+    cluster/                  # NEW package
+      dbscan.go               # DBSCAN algorithm
+      dbscan_test.go
+      cluster.go              # High-level: snapshots -> StrategyReport
+      cluster_test.go
+      epsilon.go              # Auto epsilon via k-distance elbow
+      epsilon_test.go
     config/
-      config.go          -- MODIFY: add CI and Baseline config sections
-      config_test.go     -- MODIFY: test new config sections
-    report/
-      terminal.go        -- MODIFY: alignment-aware TerminalVerbose
-      json.go            -- EXISTING (unchanged, DiffResult change flows through)
-      markdown.go        -- NEW: GitHub-flavored markdown formatter
-      markdown_test.go   -- NEW
-      report_test.go     -- MODIFY: update for new TerminalVerbose format
-    snapshot/
-      snapshot.go        -- EXISTING (unchanged)
-      store.go           -- EXISTING (unchanged)
-      baseline.go        -- NEW: baseline collection storage
-      baseline_test.go   -- NEW
-    stats/               -- NEW package
-      bootstrap.go       -- Bootstrap CI computation
-      bootstrap_test.go
-      weights.go         -- Component-aware CV weighting
-      weights_test.go
-  action.yml             -- NEW: GitHub Action definition
-  main.go                -- EXISTING (unchanged)
-  go.mod                 -- EXISTING (unchanged)
+      config.go               # MODIFY: add GenericAdapterConfig + ClusterConfig
+      config_test.go          # MODIFY: add config merge tests
+  cmd/
+    cluster.go                # NEW: agentdiff cluster subcommand
+    cluster_test.go           # NEW
+    record.go                 # MODIFY: update adapterSourceName
+    integration_test.go       # MODIFY: add v3 integration tests
+  testdata/
+    agents_sdk_trace.json     # NEW
+    langchain_callbacks.jsonl # NEW
+    generic_trace.jsonl       # NEW
 ```
 
-### New Data Types
+### Data Models
 
 ```go
-// internal/diff/align.go
-
-type AlignOp int
-const (
-    AlignMatch  AlignOp = iota // same tool at both positions
-    AlignSubst                  // different tool
-    AlignInsert                 // tool in B only (not in A)
-    AlignDelete                 // tool in A only (not in B)
-)
-
-type AlignedPair struct {
-    IndexA int     `json:"index_a"` // -1 if insert
-    IndexB int     `json:"index_b"` // -1 if delete
-    Op     AlignOp `json:"op"`
-    ToolA  string  `json:"tool_a,omitempty"`
-    ToolB  string  `json:"tool_b,omitempty"`
+// internal/cluster/dbscan.go
+type Cluster struct {
+    ID       int   // cluster index, -1 for noise
+    Members  []int // indices into input slice
+    Exemplar int   // most central member (min avg distance to others)
 }
 
-type AlignResult struct {
-    Pairs           []AlignedPair
-    FirstDivergence int          // index into Pairs, -1 if identical
-    Diverged        bool         // true if <20% match ratio
-    RetryGroups     []RetryGroup
-    RemapA          []int        // remapA[collapsedIdx] = original step index
-    RemapB          []int        // remapB[collapsedIdx] = original step index
+type DBSCANResult struct {
+    Clusters []Cluster
+    Noise    []int   // indices of noise points
+    Epsilon  float64 // epsilon used (may be auto-selected)
+    MinPts   int
 }
 
-type RetryGroup struct {
-    ToolName string `json:"tool_name"`
-    CountA   int    `json:"count_a"`
-    CountB   int    `json:"count_b"`
-    StartA   int    `json:"start_a"` // original index before collapse
-    StartB   int    `json:"start_b"`
-}
-```
-
-```go
-// internal/diff/diff.go (new field on DiffResult)
-
-type Diagnostics struct {
-    Alignment       []AlignedPair `json:"alignment"`
-    FirstDivergence int           `json:"first_divergence"`
-    Diverged        bool          `json:"diverged"`
-    RetryGroups     []RetryGroup  `json:"retry_groups,omitempty"`
-    RemapA          []int         `json:"remap_a"` // collapsed index -> original step index (A)
-    RemapB          []int         `json:"remap_b"` // collapsed index -> original step index (B)
+// internal/cluster/cluster.go
+type StrategyReport struct {
+    BaselineName  string     `json:"baseline_name"`
+    SnapshotCount int        `json:"snapshot_count"`
+    Strategies    []Strategy `json:"strategies"`
+    Noise         []string   `json:"noise"`
+    Epsilon       float64    `json:"epsilon"`
 }
 
-// DiffResult gains one field:
-//   Diagnostics *Diagnostics `json:"diagnostics,omitempty"`
-```
-
-```go
-// internal/snapshot/baseline.go
-
-type Baseline struct {
-    Name      string     `json:"name"`
-    Snapshots []Snapshot `json:"snapshots"`
-    CreatedAt time.Time  `json:"created_at"`
-    UpdatedAt time.Time  `json:"updated_at"`
-}
-```
-
-```go
-// internal/stats/bootstrap.go
-
-type BootstrapResult struct {
-    Mean       float64 `json:"mean"`
-    Lower      float64 `json:"lower"`      // 2.5th percentile
-    Upper      float64 `json:"upper"`      // 97.5th percentile
-    SampleSize int     `json:"sample_size"`
+type Strategy struct {
+    ID       int      `json:"id"`
+    Count    int      `json:"count"`
+    Exemplar string   `json:"exemplar"`
+    ToolSeq  []string `json:"tool_sequence"`
+    Members  []string `json:"members"`
 }
 
-type BaselineStats struct {
-    ToolScore BootstrapResult `json:"tool_score"`
-    TextScore BootstrapResult `json:"text_score"`
-    StepDelta BootstrapResult `json:"step_delta"`
+type MatchResult struct {
+    Matched             bool   `json:"matched"`
+    StrategyID          int    `json:"strategy_id"`
+    Exemplar            string `json:"exemplar"`
+    Distance            int    `json:"distance"`
+    MaxIntraClusterDist int    `json:"max_intra_cluster_dist"`
 }
-```
 
-```go
-// internal/stats/weights.go
+// internal/config/config.go additions
+type GenericAdapterConfig struct {
+    RoleField       string            `yaml:"role_field"`
+    RoleMap         map[string]string `yaml:"role_map"`
+    ToolNameField   string            `yaml:"tool_name_field"`
+    ToolArgsField   string            `yaml:"tool_args_field"`
+    ToolOutputField string            `yaml:"tool_output_field"`
+    ContentField    string            `yaml:"content_field"`
+}
 
-type ComponentWeight struct {
-    Name      string  `json:"name"`
-    CV        float64 `json:"cv"`
-    Weight    float64 `json:"weight"`
-    Threshold float64 `json:"threshold"`
+type ClusterConfig struct {
+    Epsilon   float64 `yaml:"epsilon"`
+    MinPoints int     `yaml:"min_points"`
 }
 ```
 
 ### Config Extension (.agentdiff.yaml)
 
 ```yaml
-# Existing (unchanged)
-thresholds:
-  tool_score: 0.3
-  text_score: 0.5
-  step_delta: 5
+adapter:
+  generic:
+    role_field: "type"
+    role_map:
+      "llm_call": "assistant"
+      "tool_invoke": "tool_call"
+      "tool_output": "tool_result"
+    tool_name_field: "function.name"
+    tool_args_field: "function.arguments"
+    tool_output_field: "result"
+    content_field: "text"
 
-# New sections
-ci:
-  baseline_path: .agentdiff/baselines/main.json.gz
-  fail_on_style_drift: false
-
-baseline:
-  runs: 5
-  confidence: 0.95
+cluster:
+  epsilon: 0       # 0 = auto-select via elbow method
+  min_points: 2
 ```
 
-```go
-// config.go additions
-type CIConfig struct {
-    BaselinePath     string `yaml:"baseline_path"`
-    FailOnStyleDrift bool   `yaml:"fail_on_style_drift"`
-}
-
-type BaselineConfig struct {
-    Runs       int     `yaml:"runs"`
-    Confidence float64 `yaml:"confidence"`
-}
-```
-
-### Exit Code Semantics (CI)
-
-| Code | Meaning |
-|------|---------|
-| 0 | Pass (all metrics within thresholds) |
-| 1 | Functional regression (tool score or step delta exceeds threshold) |
-| 2 | Stylistic drift only (text score exceeds threshold, tools OK) |
-
-### CLI Contract (new commands)
+### CLI Contracts
 
 ```
-agentdiff ci [--baseline PATH] [--output FILE]
-  # Compare current snapshots against committed baseline
-  # Output markdown report (stdout or file)
-  # Exit 0/1/2 per exit code semantics
+# New adapter names for --adapter flag
+agentdiff record <trace-file> --adapter agents_sdk
+agentdiff record <trace-file> --adapter langchain
+agentdiff record <trace-file> --adapter generic   # requires adapter.generic config
+agentdiff record <trace-file>                      # auto-detect (agents_sdk, langchain, claude, openai)
 
-agentdiff baseline record <name> <snapshot>
-  # Add snapshot to named baseline (creates if new)
-  # Exit 0
+# New cluster subcommand
+agentdiff cluster <baseline-name> [--json] [--epsilon N] [--min-points N]
+  # Output: N strategies found, exemplar per strategy, noise traces
 
-agentdiff baseline compare <name> <snapshot> [--json]
-  # Compare snapshot against baseline using bootstrap CI
-  # Exit 0 if within bounds, Exit 1 if regression
-
-agentdiff baseline list [--json]
-  # List baselines with snapshot count and date range
-  # Exit 0
+agentdiff cluster compare <baseline-name> <snapshot> [--json]
+  # Output: matched/unmatched, closest strategy, distance
 ```
 
 ## Tasks
 
-### Task 1: Levenshtein Alignment Core
+### Task 1: Export Levenshtein and ExtractToolNames
 
-**Files:** `internal/diff/align.go` (new), `internal/diff/align_test.go` (new)
-
-**Do:**
-- Implement `Align(seqA, seqB []string) AlignResult`. This is **Levenshtein edit-distance alignment** (not LCS). Build full `(len(seqA)+1) x (len(seqB)+1)` DP matrix (not 2-row -- need backtrace). Cost: match=0, substitute=1, insert=1, delete=1. Backtrace from `[la][lb]` to `[0][0]`, producing `[]AlignedPair` in forward order. On ties during backtrace, prefer: match > substitute > delete > insert (deterministic tie-breaking ensures consistent output for the same input).
-- Implement `CollapseRetries(steps []snapshot.Step) (collapsed []snapshot.Step, remap []int, groups []RetryGroup)`. A retry is defined as 2+ consecutive steps where: (a) both have non-nil ToolCall, (b) same tool name, AND (c) same arguments (JSON-canonicalized comparison: marshal Args to sorted-key JSON, compare strings). This avoids reflect.DeepEqual pitfalls where encoding/json decodes numbers as float64 but other paths might use int. Calls with different arguments (e.g., `Read("a.go")` then `Read("b.go")`) are NOT retries and must NOT be collapsed. Collapse to single representative (keep first call). Return `remap []int` where `remap[collapsedIdx] = originalStepIdx`, enabling callers to map alignment indices back to original snapshot positions. Return groups with original start indices and counts.
-- Implement divergence detection: if `matchCount / max(len(seqA), len(seqB)) < 0.2`, set `Diverged = true`.
-- Compute `FirstDivergence`: index of first `AlignedPair` where `Op != AlignMatch`. Set to -1 if all match.
-- Respect `maxToolCalls = 1000` cap (overridable via `--max-steps` flag on diff/report/ci commands). For sequences longer than the cap, truncate to the last N before alignment. **Remap indices remain absolute** (reference the original full snapshot, not the truncated suffix). **Emit a warning to stderr** when truncation occurs: "Warning: truncated N steps to 1000 for alignment. Use --max-steps to increase."
-- Tests: identical sequences (all AlignMatch, FirstDivergence=-1), single insertion in middle, single deletion, substitution, complete divergence (Diverged=true), retry collapse (3 consecutive Read calls with SAME args -> 1, group records count=3), retry non-collapse (3 consecutive Read calls with DIFFERENT args -> 3, no group), remap array correctness (collapsed index maps to correct original index), empty sequences (both empty, one empty), mixed operations producing correct backtrace order, tie-breaking determinism (["A","B"] vs ["B","A"] produces consistent output).
-
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/diff/ -run TestAlign -v`
-
-**Dependencies:** None
-
-### Task 2: Integrate Alignment into CompareTools and DiffResult
-
-**Files:** `internal/diff/tools.go` (modify), `internal/diff/diff.go` (modify), `internal/diff/text.go` (modify), `internal/diff/tools_test.go` (modify), `internal/diff/diff_test.go` (modify)
+**Files:** `internal/diff/tools.go`, `internal/diff/tools_test.go`
 
 **Do:**
-- Add `Diagnostics` struct to `diff.go`. Add `Diagnostics *Diagnostics` field to `DiffResult` with tag `json:"diagnostics,omitempty"`. This is additive -- existing JSON output is unchanged when Diagnostics is nil (omitempty).
-- Create `CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnostics)` in `tools.go`. This function: (1) calls `CollapseRetries` on both step sequences, getting collapsed steps + remap arrays, (2) extracts tool names from collapsed steps, (3) calls `Align` on collapsed tool name sequences, (4) derives `editDist` from alignment (count of non-AlignMatch ops), (5) computes `argScore` using alignment pairs — for AlignMatch pairs, use `remapA[pair.IndexA]` and `remapB[pair.IndexB]` to index into the ORIGINAL step slices for arg comparison via `jaccardArgs`, (6) computes added/removed/reordered from alignment, (7) populates `Diagnostics` with alignment, remap arrays, retry groups, first divergence, and diverged flag, (8) returns both ToolDiffResult and Diagnostics.
-- Update `CompareTools` to call `CompareToolsWithDiagnostics` and discard the diagnostics (keeps existing API unchanged).
-- Update `Compare()` in `text.go` to call `CompareToolsWithDiagnostics` instead of `CompareTools`, and populate `result.Diagnostics`.
-- Existing `levenshtein` function stays untouched.
-- Update test assertions: alignment-based arg scoring may shift some `ToolDiffResult.Score` values slightly. These shifts are expected and more accurate. Verify all existing tests pass (update assertions where values shift). The total test count should not decrease.
+- Rename `levenshtein` to `Levenshtein` (exported). Rename `extractToolNames` to `ExtractToolNames` (exported).
+- Update all callers within the `diff` package (`tools.go` and `tools_test.go`) to use the new names. There are 2 call sites for `levenshtein` (none currently, it was kept for direct use but `Align` replaced it in v2 -- verify) and multiple for `extractToolNames`.
+- Add direct unit tests for the exported functions:
+  - `TestLevenshteinDirect`: empty vs non-empty (returns len), identical (returns 0), single substitution (returns 1), completely different (returns max len).
+  - `TestExtractToolNamesDirect`: empty steps (nil), steps with no tool calls (nil), mixed steps with some tool calls (returns only tool call names in order).
+- Run full test suite to verify no regressions from the rename.
 
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./... -count=1`
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/diff/ -run "TestLevenshtein|TestExtractToolNames" -v && go test ./... -count=1`
 
-**Dependencies:** Task 1
+**Dependencies:** none
 
-### Task 3: Alignment-Aware Terminal Reports
+### Task 2: OpenAI Agents SDK Adapter
 
-**Files:** `internal/report/terminal.go` (modify), `cmd/report.go` (modify), `internal/report/report_test.go` (modify)
-
-**Do:**
-- Change `TerminalVerbose` signature to: `TerminalVerbose(result diff.DiffResult, snapA, snapB snapshot.Snapshot, w io.Writer) error`. It already receives the DiffResult which now contains Diagnostics.
-- When `result.Diagnostics != nil`, replace positional iteration with alignment-aware iteration. Use `Diagnostics.RemapA` and `RemapB` to map alignment indices back to original step indices in `snapA.Steps` and `snapB.Steps`. For each `AlignedPair`:
-  - `AlignMatch`: use `remapA[pair.IndexA]` to get original step from snapA, `remapB[pair.IndexB]` for snapB. Show step comparison with tool name, compare args with `printArgDiff`. Display original step numbers (not collapsed indices) for user clarity.
-  - `AlignSubst`: show tool name change in red/green: `- [A step N] toolA` / `+ [B step M] toolB` using remapped original indices.
-  - `AlignInsert`: show `+ [B only] step M: toolName` in green (M = remapB[pair.IndexB]).
-  - `AlignDelete`: show `- [A only] step N: toolName` in red (N = remapA[pair.IndexA]).
-- When `result.Diagnostics == nil`, fall back to existing positional logic (backward compat).
-- Show retry groups: "Retries: Read x3 (A) vs Read x2 (B)" for each group.
-- If `Diagnostics.Diverged`, print warning: "WARNING: Traces diverged (different strategies). Alignment unreliable."
-- Print "First divergence at aligned step N" when `FirstDivergence >= 0`.
-- Update `cmd/report.go`: no signature change needed since DiffResult already flows through.
-- Update `report_test.go` to test alignment-aware output: test with diagnostics present (verify insert/delete markers), test with diagnostics nil (verify fallback to positional).
-
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/report/ -v && go test ./cmd/ -v`
-
-**Dependencies:** Task 2
-
-### Task 4: CI Config and Markdown Reporter
-
-**Files:** `internal/config/config.go` (modify), `internal/config/config_test.go` (modify), `internal/report/markdown.go` (new), `internal/report/markdown_test.go` (new)
+**Files:** `internal/adapter/agents_sdk.go` (new), `internal/adapter/agents_sdk_test.go` (new), `testdata/agents_sdk_trace.json` (new)
 
 **Do:**
-- Add `CIConfig` and `BaselineConfig` structs to `config.go`. Extend `Config` with `CI CIConfig` and `Baseline BaselineConfig` fields (yaml tags: `ci` and `baseline`). Update `DefaultConfig()`: `CI.BaselinePath = ""`, `CI.FailOnStyleDrift = false`, `Baseline.Runs = 5`, `Baseline.Confidence = 0.95`. Update `Load()` to parse new sections using the same partial-parse approach (fileConfig map). **Validate `Baseline.Confidence` is in (0.0, 1.0) — return error from `Load()` if not.**
-- Create `markdown.go` with two functions:
-  - `Markdown(result diff.DiffResult, cfg config.Config, w io.Writer) error`: single diff as markdown. Format: `## AgentDiff Report` header, summary table (`| Metric | Score | Threshold | Status |` with checkmark/X/warning indicators), collapsible `<details>` section with per-step alignment breakdown (if diagnostics present), diagnostics summary (first divergence, retry groups), verdict line.
-  - `CIMarkdown(results []diff.DiffResult, cfg config.Config, w io.Writer) error`: multiple diffs, iterates and renders each with a `### <snapshot-name>` sub-header.
-- Tests: verify markdown contains expected table headers, `<details>` tags, correct status indicators for pass/regression/drift, handles empty diagnostics gracefully.
+- Create `AgentsSdkAdapter` struct implementing `Adapter` interface.
+- Parse JSON input with structure: `{"trace_id": "...", "spans": [...]}`. Each span has `type` (string: "agent", "function", "generation"), `name` (string), `span_data` (object), and optional `children` (array of spans).
+- Recursively walk the span tree depth-first. For each span:
+  - `type: "function"`: emit a `tool_call` step with `Name = span.name`, `Args` from `span_data.input` (if it's a map, use directly; if string, wrap as `{"input": value}`). Then emit a `tool_result` step with `Name = span.name`, `Output` from `span_data.output` (stringify if not already string).
+  - `type: "agent"`: extract `span_data.model` into metadata map. Recurse into `children`.
+  - `type: "generation"`: emit an `assistant` step with content from `span_data.output` if present, otherwise skip.
+  - Other types: skip silently.
+- Handle malformed spans defensively: skip nil entries in `children` arrays, skip spans where `span_data` is missing or not an object, cap recursion depth at 100 levels (return error if exceeded).
+- Return metadata map with `model` if found, `trace_id` always.
+- Create testdata fixture `agents_sdk_trace.json` with nested agent > 2 function spans + 1 generation span.
+- Tests: empty trace (no spans), single function span, nested agent with multiple children, metadata extraction (model + trace_id), unknown span types ignored.
 
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/report/ -run TestMarkdown -v && go test ./internal/config/ -v`
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/adapter/ -run TestAgentsSdk -v`
 
-**Dependencies:** Task 2
+**Dependencies:** none
 
-### Task 5: CI Subcommand and GitHub Action
+### Task 3: LangChain Callback Adapter
 
-**Files:** `cmd/ci.go` (new), `cmd/ci_test.go` (new), `action.yml` (new)
-
-**Do:**
-- Implement `agentdiff ci` cobra subcommand. Behavior:
-  1. Load config from `.agentdiff.yaml` in cwd
-  2. Load baseline from `ci.baseline_path` (error with clear message if not configured or file missing)
-  3. Load current snapshots from `.agentdiff/snapshots/` via store.List()
-  4. For each current snapshot, find the baseline snapshot with the same `Name` field. A baseline file contains multiple snapshots; match by name, use the **latest** (most recent Timestamp) if multiple share a name. Skip current snapshots with no baseline match (print warning).
-  5. Run `diff.Compare` for each matched pair, collect results
-  6. **Always** render markdown via `report.CIMarkdown` to stdout or `--output` file — this must happen BEFORE any non-zero exit, so the report is always available.
-  7. Exit code logic: if any result has tool regression or step regression -> exit 1. If any result has text-only regression and `fail_on_style_drift: false` -> exit 2. Otherwise exit 0.
-- Flags: `--output FILE` (write to file instead of stdout), `--baseline PATH` (override `ci.baseline_path`).
-- Define `ErrStyleDrift` error type for exit code 2. Update `cmd/root.go` Execute() to handle exit code 2: `if err == ErrStyleDrift { os.Exit(2) }` (checked before the generic error handler).
-- Create `action.yml` at repo root:
-  - name: "AgentDiff CI"
-  - inputs: `baseline_path`, `fail_on_style_drift`, `threshold_tool`, `threshold_text`, `threshold_steps`
-  - runs using composite steps: (1) `actions/setup-go@v5`, (2) `go install github.com/jtsilverman/agentdiff@latest`, (3) `echo "$GOPATH/bin" >> $GITHUB_PATH` to ensure binary is on PATH, (4) write inputs to `.agentdiff.yaml` if not present, (5) `agentdiff ci --output report.md || echo "exit_code=$?" >> $GITHUB_ENV` (capture exit code, don't fail yet), (6) post `report.md` as PR comment via `actions/github-script`, (7) final step: `if [ "$exit_code" = "1" ]; then exit 1; fi` — exit 1 only for functional regressions. Exit 2 (style drift) does NOT fail the action when `fail_on_style_drift: false`.
-- Tests: create temp dirs with mock baseline files and snapshots. Test pass scenario (exit 0), functional regression (exit 1), stylistic drift only (exit 2), missing baseline path (error).
-
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./cmd/ -run TestCI -v`
-
-**Dependencies:** Task 4
-
-### Task 6: Baseline Storage
-
-**Files:** `internal/snapshot/baseline.go` (new), `internal/snapshot/baseline_test.go` (new)
+**Files:** `internal/adapter/langchain.go` (new), `internal/adapter/langchain_test.go` (new), `testdata/langchain_callbacks.jsonl` (new)
 
 **Do:**
-- Define `Baseline` struct: `Name string`, `Snapshots []Snapshot`, `CreatedAt time.Time`, `UpdatedAt time.Time`.
-- Implement `BaselineStore` struct with `dir` field (`.agentdiff/baselines/`).
-- `NewBaselineStore(baseDir string) *BaselineStore` -- analogous to `NewStore`.
-- `Save(b Baseline) error` -- JSON marshal, gzip compress via `compress/gzip`, write to `<dir>/<name>.json.gz`. Create dir if needed.
-- `Load(name string) (Baseline, error)` -- open file, gzip decompress, JSON unmarshal. Clear error if file not found.
-- `List() ([]Baseline, error)` -- scan dir for `*.json.gz`, load each, return sorted by UpdatedAt.
-- `AddSnapshot(name string, snap Snapshot) error` -- load existing baseline (or create new if not found), append snapshot, update `UpdatedAt`, save. Set `CreatedAt` only on first create.
-- Tests: round-trip save/load verifies data integrity, compression produces smaller output than raw JSON, AddSnapshot creates new baseline then appends, List returns multiple baselines sorted, Load returns clear error for missing name.
+- Create `LangChainAdapter` struct implementing `Adapter` interface.
+- Parse JSONL input. Each line is a JSON object with `type` (string), `run_id` (string), optional `parent_run_id` (string), `name` (string), and type-specific fields.
+- Process events in line order (chronological):
+  - `on_tool_start`: emit `tool_call` step. `Name` from `name` field. `Args` from `inputs` field (map). If `inputs` is not a map, wrap as `{"input": value}`.
+  - `on_tool_end`: emit `tool_result` step. `Name` from `name` field. `Output` from `outputs.output` if present, otherwise JSON-stringify entire `outputs` map.
+  - `on_llm_end`: emit `assistant` step. `Content` from `outputs.generations[0][0].text` if present, otherwise from `outputs.output` if present, otherwise skip.
+  - `on_chain_start`: extract `name` into metadata as `agent_name` (only for the first chain_start). Skip as step.
+  - `on_chain_end`, `on_llm_start`, and unknown types: skip.
+- Return metadata with `agent_name` if found.
+- Create testdata fixture with: chain_start, tool_start, tool_end, tool_start, tool_end, llm_end, chain_end.
+- Tests: empty input, single tool round-trip (start + end), multiple tools, llm_end with generation text, unknown events ignored, missing optional fields handled gracefully.
 
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/snapshot/ -run TestBaseline -v`
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/adapter/ -run TestLangChain -v`
 
-**Dependencies:** None
+**Dependencies:** none
 
-### Task 7: Bootstrap Statistics
+### Task 4: Generic JSONL Adapter and Config Extension
 
-**Files:** `internal/stats/bootstrap.go` (new), `internal/stats/bootstrap_test.go` (new), `internal/stats/weights.go` (new), `internal/stats/weights_test.go` (new)
-
-**Do:**
-- Create `internal/stats/` package.
-- Implement `Bootstrap(samples []float64, confidence float64, B int, seed int64) (BootstrapResult, error)`. **Validate confidence is in (0.0, 1.0) — return error if not.** Use `math/rand.NewSource(seed)` for reproducibility. Resample with replacement B times, compute mean of each resample, sort ascending, extract percentile bounds. For 95% CI with B=10,000: lower = sorted[250], upper = sorted[9750]. Return mean of original samples as `Mean`.
-- Handle edge cases: empty samples returns zero result (no error), single sample returns that value for mean/lower/upper (no error).
-- Implement `ComputeBaselineStats(diffs []diff.DiffResult, confidence float64) BaselineStats`. Collect tool scores, text scores, step deltas from the diff results. Run `Bootstrap` on each with B=10,000 and seed derived from len(diffs).
-- Implement `ComputeWeights(stats BaselineStats, thresholds config.Thresholds) []ComponentWeight`. For each component: CV = std/mean. Low CV (< 0.1) -> tighten threshold by 20% (multiply by 0.8). High CV (> 0.5) -> relax threshold by 30% (multiply by 1.3). Normal -> keep default. Normalize weights so they sum to 1.0.
-- Implement `IsRegression(current diff.DiffResult, stats BaselineStats, weights []ComponentWeight) (bool, string)`. Check each component: if current score > component's adjusted threshold AND current score > upper CI bound, it's a regression. Return true + human-readable reason. **The reason string must include both the configured threshold and the effective (CV-adjusted) threshold** so users understand why a score below their configured threshold can still trigger a regression (e.g., "tool_score 0.18 > effective threshold 0.16 (configured 0.20, tightened due to low variance CV=0.05)").
-- Tests: all-same samples produce CI width near 0 and low CV, high-variance samples produce wide CI, bootstrap CI contains sample mean (statistical test: run 100 times, verify containment > 90%), weight adjustment for low/high CV, IsRegression with known inputs, **confidence validation (1.5 returns error, -0.3 returns error, 0.95 succeeds)**.
-
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/stats/ -v`
-
-**Dependencies:** None
-
-### Task 8: Baseline Subcommands
-
-**Files:** `cmd/baseline.go` (new), `cmd/baseline_test.go` (new)
+**Files:** `internal/adapter/generic.go` (new), `internal/adapter/generic_test.go` (new), `internal/config/config.go` (modify), `internal/config/config_test.go` (modify), `testdata/generic_trace.jsonl` (new)
 
 **Do:**
-- Implement `agentdiff baseline` parent command with three subcommands:
-- `agentdiff baseline record <name> <snapshot>`:
-  - Load snapshot from store by name/ID
-  - Call `baselineStore.AddSnapshot(name, snapshot)`
-  - Print confirmation: "Added <snapshot-name> to baseline <name> (N snapshots total)"
-- `agentdiff baseline compare <name> <snapshot>`:
-  - Load baseline and current snapshot
-  - For each baseline snapshot, run `diff.Compare` against current snapshot
-  - Compute `stats.ComputeBaselineStats` and `stats.ComputeWeights`
-  - Run `stats.IsRegression`
-  - Print terminal report: per-component CI bounds, current score, pass/fail
-  - Respect `--json` global flag
-  - Exit 1 if regression
-- `agentdiff baseline list`:
-  - List all baselines: name, snapshot count, date range (created -> updated)
-  - Respect `--json` global flag
-- Tests: record creates new baseline (verify file exists), record appends (verify count), compare detects regression (mock high-scoring diff), compare passes (mock low-scoring diff), list shows correct info. Use temp dirs.
+- Extend `Config` struct in `config.go`:
+  - Add `Adapter AdapterConfig` field with yaml tag `adapter`.
+  - `AdapterConfig` has `Generic GenericAdapterConfig` field.
+  - Add `Cluster ClusterConfig` field with yaml tag `cluster`.
+  - Update `DefaultConfig()` with zero-value defaults: empty strings/maps for generic adapter, `ClusterConfig{Epsilon: 0, MinPoints: 2}`.
+  - Update `Load()` to merge `adapter` and `cluster` sections. Use the same partial-parse pattern: add `Adapter` and `Cluster` fields to `fileConfig` as `map[string]interface{}`. For adapter.generic, use `yaml.Marshal` then `yaml.Unmarshal` to convert `map[string]interface{}` to `GenericAdapterConfig` struct (avoids manual type-assertion loops for nested role_map). For cluster, merge epsilon and min_points.
+- Create `GenericAdapter` struct with a `GenericAdapterConfig` field. Constructor: `NewGenericAdapter(cfg GenericAdapterConfig) *GenericAdapter`.
+- Implement `Parse()`:
+  - Split input on newlines, parse each as JSON object.
+  - For each line: resolve `role_field` to get raw role string, map through `role_map` (if no mapping exists, use raw value -- must be one of user/assistant/tool_call/tool_result, skip otherwise).
+  - For `tool_call` role: resolve `tool_name_field` and `tool_args_field` via dot-notation paths.
+  - For `tool_result` role: resolve `tool_name_field` and `tool_output_field`.
+  - For `user`/`assistant`: resolve `content_field`.
+- Implement `resolveFieldPath(obj map[string]interface{}, path string) (interface{}, bool)`: split path on `.`, walk nested maps, return value and ok. If any intermediate level is not a map or key is missing, return nil, false.
+- Create testdata fixture with 4 lines: user message, tool_call, tool_result, assistant reply using custom field names.
+- Tests: `TestResolveFieldPath` (flat field, nested field, missing field, non-map intermediate), `TestGenericParse` (full round-trip with role mapping), `TestGenericMissingFields` (graceful skip on missing fields), config load with adapter.generic section.
 
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./cmd/ -run TestBaseline -v`
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/adapter/ -run TestGeneric -v && go test ./internal/config/ -v`
 
-**Dependencies:** Task 6, Task 7
+**Dependencies:** none
 
-### Task 9: Integration Tests and Full Suite Validation
+### Task 5: Detection and Registry Updates
 
-**Files:** `cmd/integration_test.go` (modify)
+**Files:** `internal/adapter/adapter.go` (modify), `internal/adapter/detect.go` (modify), `internal/adapter/detect_test.go` (modify), `cmd/record.go` (modify)
 
 **Do:**
-- Add integration tests exercising v2 features end-to-end:
-  - **Alignment test:** Record two snapshots from testdata where B has one extra tool call inserted in the middle. Run `agentdiff diff --json`, parse JSON output, verify `diagnostics.alignment` contains an AlignInsert entry and `diagnostics.first_divergence >= 0`.
-  - **Retry collapse test:** Record two snapshots where both have retry sequences (3 consecutive Read calls). Verify `diagnostics.retry_groups` is populated.
-  - **CI test:** Set up `.agentdiff.yaml` with `ci.baseline_path`, create a baseline file and current snapshots. Run `agentdiff ci --output report.md`. Verify report.md contains markdown table. Verify exit code 0 for passing case.
-  - **Baseline round-trip test:** Run `agentdiff baseline record test-bl snap-a`, then `agentdiff baseline record test-bl snap-b`. Run `agentdiff baseline compare test-bl snap-a --json`. Verify JSON output contains bootstrap CI fields.
-- Create any needed testdata fixtures inline in tests (use `store.Save` to create snapshots programmatically).
-- Run full suite, confirm all tests pass and total count exceeds 57.
+- Register new adapters in `adapter.go` init():
+  ```go
+  registry["agents_sdk"] = &AgentsSdkAdapter{}
+  registry["langchain"] = &LangChainAdapter{}
+  ```
+  Do NOT register GenericAdapter (it requires config). Add `GetGeneric(cfg config.GenericAdapterConfig) Adapter` function that returns `NewGenericAdapter(cfg)`.
+- Update `detect.go` detection logic:
+  - In `detectJSONObject()`: BEFORE the existing `choices`/`messages` checks, check for `trace_id` AND `spans` keys. If both present, return `&AgentsSdkAdapter{}`.
+  - In the JSONL fallback paths (both in `case '{'` and the default case): before returning `&ClaudeAdapter{}`, peek at the first JSONL line. Parse it as JSON, check for both `run_id` key AND `type` key where the type value matches one of: `on_tool_start`, `on_tool_end`, `on_llm_start`, `on_llm_end`, `on_chain_start`, `on_chain_end`, `on_retriever_start`, `on_retriever_end`. If both present, return `&LangChainAdapter{}`. Otherwise fall through to Claude.
+  - Generic adapter is NEVER auto-detected.
+- Update `cmd/record.go`:
+  - In `adapterSourceName()`, add type switch cases: `*AgentsSdkAdapter` -> "agents_sdk", `*LangChainAdapter` -> "langchain", `*GenericAdapter` -> "generic".
+  - In `runRecord()`: when `recordAdapterName == "generic"`, load config from cwd via `config.Load()`. Before constructing the adapter, validate that `cfg.Adapter.Generic.RoleField` is non-empty. If empty, return error: `generic adapter requires adapter.generic.role_field in .agentdiff.yaml`. Construct adapter via `adapter.GetGeneric(cfg.Adapter.Generic)`, set `sourceName = "generic"`. Skip Detect path.
+- Add detection tests in `detect_test.go`:
+  - Agents SDK JSON detected correctly (input with trace_id + spans).
+  - LangChain JSONL detected correctly (lines with run_id + on_tool_start).
+  - Claude JSONL still detected correctly (not misrouted to LangChain).
+  - OpenAI array/object formats still detected correctly.
+  - JSONL without run_id/on_ prefix falls through to Claude.
 
-**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./... -count=1 -v 2>&1 | tail -5`
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/adapter/ -run TestDetect -v && go build ./...`
 
-**Dependencies:** Task 3, Task 5, Task 8
+**Dependencies:** Task 2, Task 3, Task 4
+
+### Task 6: DBSCAN Algorithm
+
+**Files:** `internal/cluster/dbscan.go` (new), `internal/cluster/dbscan_test.go` (new)
+
+**Do:**
+- Create `internal/cluster/` package.
+- Implement `DistanceMatrix(sequences [][]string, distFn func(a, b []string) int) [][]int`. Build symmetric N x N matrix. `distMatrix[i][j] = distFn(sequences[i], sequences[j])`. Diagonal is 0.
+- Implement `DBSCAN(distMatrix [][]int, epsilon float64, minPts int) DBSCANResult`. Standard DBSCAN algorithm:
+  1. Initialize all points as unvisited.
+  2. For each unvisited point p: mark as visited. Find neighbors (all points q where `distMatrix[p][q] <= epsilon`).
+  3. If len(neighbors) >= minPts: create new cluster, expand cluster (add neighbors, recursively check their neighborhoods).
+  4. Otherwise: mark as noise (may later be added to a cluster as a border point).
+  5. After clustering, for each cluster compute exemplar: the member with minimum average distance to other members in the same cluster.
+- Return `DBSCANResult` with clusters (each has ID starting at 0, Members as sorted indices, Exemplar index), Noise (sorted indices), Epsilon, MinPts.
+- Tests:
+  - Two clear clusters with gap: sequences `[["a","b"], ["a","b","c"], ["x","y","z"], ["x","y"]]` with epsilon=2, should produce 2 clusters.
+  - All same: all identical sequences, epsilon=0, single cluster.
+  - All noise: epsilon=0, all different sequences, minPts=2, all noise.
+  - Empty input: returns empty result.
+  - Single point: with minPts=1, single cluster; with minPts=2, noise.
+  - Exemplar correctness: verify exemplar is the most central member.
+
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/cluster/ -run TestDBSCAN -v`
+
+**Dependencies:** none
+
+### Task 7: Epsilon Auto-Selection
+
+**Files:** `internal/cluster/epsilon.go` (new), `internal/cluster/epsilon_test.go` (new)
+
+**Do:**
+- Implement `AutoEpsilon(distMatrix [][]int, minPts int) (float64, error)`.
+  1. For each point i, collect distances to all other points, sort ascending, take the k-th value (k = minPts). This is the k-distance for point i.
+  2. Sort all k-distances ascending.
+  3. Compute discrete second derivative: `d2[i] = kd[i+1] - 2*kd[i] + kd[i-1]` for `i in [1, len-2]`.
+  4. Find index of maximum d2 value. The k-distance at that index is epsilon.
+- Edge cases:
+  - Fewer than 3 points: return error `"need at least 3 points for auto epsilon"`.
+  - All k-distances equal: return that distance (valid, every point is equidistant).
+  - Second derivative all zeros (linear): return median k-distance.
+  - k-distance at elbow is 0: return 1.0 as minimum epsilon (avoid degenerate 0-epsilon).
+- Tests:
+  - Clear elbow: two tight clusters far apart. Epsilon should be between intra-cluster and inter-cluster distance.
+  - Degenerate all-same: all distances equal, returns that distance.
+  - Linear gradient: returns median.
+  - Too few points: returns error.
+  - Verify auto-epsilon produces reasonable clustering when fed back to DBSCAN.
+
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/cluster/ -run TestAutoEpsilon -v`
+
+**Dependencies:** Task 6
+
+### Task 8: Snapshot Clustering
+
+**Files:** `internal/cluster/cluster.go` (new), `internal/cluster/cluster_test.go` (new)
+
+**Do:**
+- Implement `ClusterBaseline(baseline snapshot.Baseline, epsilon float64, minPts int) (StrategyReport, error)`.
+  0. If baseline has fewer than max(3, minPts+1) snapshots, return error: `baseline needs at least N snapshots for clustering (has M)`.
+  1. Extract tool name sequences from each snapshot: `seqs[i] = diff.ExtractToolNames(baseline.Snapshots[i].Steps)`.
+  2. Build distance matrix: `DistanceMatrix(seqs, diff.Levenshtein)`.
+  3. If epsilon == 0, call `AutoEpsilon(distMatrix, minPts)`. If auto-epsilon fails, return error.
+  4. Run `DBSCAN(distMatrix, epsilon, minPts)`.
+  5. Build `StrategyReport`: map cluster members to snapshot names, get exemplar snapshot's tool sequence, collect noise snapshot names.
+- Implement `CompareToCluster(baseline snapshot.Baseline, snap snapshot.Snapshot, epsilon float64, minPts int) (MatchResult, error)`.
+  1. Call `ClusterBaseline()` to get strategies.
+  2. Extract new snapshot's tool sequence.
+  3. For each strategy, compute Levenshtein distance from new snapshot to the strategy's exemplar sequence.
+  4. For each strategy, compute max intra-cluster distance (max Levenshtein distance from any member to the exemplar). Find minimum distance from new snapshot to any exemplar. If min distance to closest exemplar <= that strategy's max intra-cluster distance, return `MatchResult{Matched: true, StrategyID: id, Exemplar: name, Distance: dist, MaxIntraClusterDist: maxDist}`. If a strategy has only one member (no intra-cluster distances), fall back to epsilon as the match threshold for that strategy.
+  5. If no match, return `MatchResult{Matched: false, Distance: minDist}` with the closest strategy info.
+- Tests:
+  - Baseline with 2 clear strategies (3 search-summarize runs, 3 direct-answer runs): verify 2 strategies found.
+  - Single-strategy baseline: verify 1 strategy, no noise.
+  - Snapshot matching a strategy: verify Matched=true, correct StrategyID.
+  - Snapshot not matching any strategy: verify Matched=false.
+  - Empty baseline: return error.
+  - Baseline with 1 snapshot: return error (need at least minPts).
+
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./internal/cluster/ -run "TestClusterBaseline|TestCompareToCluster" -v`
+
+**Dependencies:** Task 1, Task 6, Task 7
+
+### Task 9: Cluster Subcommand and Integration Tests
+
+**Files:** `cmd/cluster.go` (new), `cmd/cluster_test.go` (new), `cmd/integration_test.go` (modify)
+
+**Do:**
+- Create `agentdiff cluster` parent command.
+- `agentdiff cluster <baseline-name>` subcommand (positional arg):
+  1. Load config from cwd.
+  2. Load baseline from `BaselineStore`.
+  3. Read epsilon from `--epsilon` flag (default 0 = auto, overrides config). Read min-points from `--min-points` flag (default 0 = use config, which defaults to 2).
+  4. Call `cluster.ClusterBaseline()`.
+  5. Terminal output: header line with baseline name and snapshot count. Table with columns: Strategy, Count, Exemplar, Tool Sequence. Noise section listing unclassified snapshots. Footer with epsilon used.
+  6. JSON output (--json flag): marshal `StrategyReport` directly.
+- `agentdiff cluster compare <baseline-name> <snapshot>` subcommand:
+  1. Load baseline and snapshot (snapshot by name/ID from store).
+  2. Call `cluster.CompareToCluster()`.
+  3. Terminal output: "Matched strategy N (exemplar: name, distance: D)" or "No matching strategy (closest: name, distance: D)".
+  4. JSON output: marshal `MatchResult`.
+  5. Exit codes: `cluster compare` exits 0 if matched, exits 1 if no matching strategy found. This enables CI usage: `agentdiff cluster compare main-baseline current-snap || echo 'New strategy detected'`.
+- Wire both into `rootCmd` via `init()`.
+- Flags: `--epsilon` (float64), `--min-points` (int) on the parent cluster command (inherited by subcommands).
+- Add integration tests in `cmd/integration_test.go`:
+  - `TestIntegrationV3Cluster`: programmatically create 6 snapshots (3 with tool sequence [search, summarize], 3 with [lookup, answer]). Add all to a baseline. Run cluster, verify 2 strategies found.
+  - `TestIntegrationV3ClusterCompare`: create a new snapshot with [search, summarize, cite], run cluster compare, verify it matches the search-summarize strategy.
+  - `TestIntegrationV3Record`: record from each new testdata fixture (agents_sdk, langchain, generic), verify snapshots saved with correct source names.
+- Run full test suite, confirm all tests pass.
+
+**Validate:** `cd /Users/rock/Rock/projects/agentdiff && go test ./cmd/ -run "TestCluster|TestIntegrationV3" -v && go build ./...`
+
+**Dependencies:** Task 5, Task 8
 
 ## The One Hard Thing
 
-**Levenshtein edit-distance alignment with argument-aware retry heuristics** (Task 1).
+**Automatic epsilon selection for DBSCAN via k-distance elbow detection.**
 
-The challenge: standard edit distance operates on flat string sequences, but agent steps are complex structs with arguments. The alignment must:
-1. Build and backtrace a full DP matrix (O(n*m) space vs the existing 2-row optimization) with deterministic tie-breaking (match > substitute > delete > insert)
-2. Preprocess retry sequences with argument-aware matching (same name AND same args = retry, same name with different args = distinct operation) and output remap arrays so post-alignment indices map back to original step positions
-3. Detect when traces are so divergent that forcing an alignment is misleading
+Agent tool sequences have variable-length edit distances with no guaranteed cluster structure. The elbow method works by: (1) computing each point's distance to its k-th nearest neighbor (k = minPts), (2) sorting these distances ascending, (3) finding the point of maximum curvature (largest discrete second derivative) in the sorted curve.
 
-**Approach:** Align on tool call names only (strings), reducing to classic Levenshtein on `[]string`. Retry collapse is a preprocessing step that outputs collapsed sequences, remap arrays (`[]int`), and retry groups. After alignment on collapsed sequences, use remap arrays to index into original step slices for arg comparison and terminal reporting. Divergence threshold (20% match ratio) prevents forcing meaningless alignments on completely different strategies.
+**Approach:** Discrete second derivative on sorted k-distances. `d2[i] = kd[i+1] - 2*kd[i] + kd[i-1]`. Index of max `d2` gives the elbow. Use `kd[elbow]` as epsilon.
 
-**Fallback:** If the full DP matrix is too memory-heavy for 1000x1000 sequences (~8MB, should be fine), implement banded alignment: only compute within k diagonals of the main diagonal. This caps memory at O(n*k) where k = expected max edit distance.
+**Fallback:** Three degenerate cases handled explicitly:
+1. All k-distances equal: use that distance as epsilon (every point is equidistant).
+2. Linear gradient (no bend): use median k-distance.
+3. Fewer than 3 points: return error, require manual `--epsilon`.
+
+This is the novel technical contribution. Nobody else clusters agent tool-call sequences with auto-tuned DBSCAN. Jake should be able to explain the k-distance graph and why second-derivative detects the natural cluster boundary.
 
 ## Risks
 
-**Alignment changes existing test assertions (medium).** Switching from positional to LCS-based arg scoring will shift some `ToolDiffResult.Score` values. The shifts should be small and more accurate. Mitigation: Task 2 explicitly re-validates all 57 tests and updates assertions where needed.
+1. **LangChain format fragility (medium).** No standard callback export format. Different callback handlers produce different JSONL schemas. Mitigation: support the most common pattern (`on_tool_start`/`on_tool_end` with `run_id` + `name` + `inputs`/`outputs`), document expected format in README, point users to the generic adapter as escape hatch.
 
-**Bootstrap reproducibility (medium).** Random resampling produces different results across runs without fixed seed. Mitigation: seed derived from input data length. Tests use explicit seed. Document that results are deterministic for same input.
+2. **Epsilon auto-selection quality (medium).** Elbow method fails on degenerate distributions (uniform distances, no natural clusters). Mitigation: explicit fallback to median with warning. Manual `--epsilon` flag always available. Document when auto-selection works well (5+ baseline runs, 2+ distinct strategies) vs. when to set manually.
 
-**Memory for large traces (low).** 1000x1000 DP matrix = ~8MB. The existing `maxToolCalls = 1000` cap already enforces this bound. No mitigation needed.
+3. **Generic adapter field path parsing (low).** Dot-notation paths like `function.arguments` require recursive JSON map traversal. Nested arrays not supported (only nested objects). Mitigation: simple `strings.Split(path, ".")` + type-assert each level. Clear error on missing or wrong-type fields.
 
-**CI exit code semantics in GitHub Actions (medium).** Non-zero exit codes fail composite action steps. Mitigation: action.yml captures the exit code before it fails the step, posts the markdown report unconditionally, then only fails the job for exit code 1 (functional regression). Exit code 2 (style drift) is surfaced in the PR comment but does not fail the action when `fail_on_style_drift: false`.
+4. **OpenAI Agents SDK format stability (low).** SDK is relatively new, trace format may evolve. Mitigation: adapter is ~100 lines, isolated in one file, easy to update.
 
-**Truncation discards early divergence (low).** The maxToolCalls=1000 cap truncates to the last 1000 steps, which could hide root causes occurring early in long traces. Mitigation: emit a stderr warning when truncation occurs, including the number of steps dropped.
-
-**Scope creep into GitHub API (low).** Check Runs API annotations are explicitly deferred. The `action.yml` uses `actions/github-script` for PR comments -- no Go GitHub client needed.
+5. **Levenshtein export rename (low).** Renaming `levenshtein` to `Levenshtein` changes internal API. All callers are in the same package. Mitigation: find-and-replace, verify with `go build ./...` and full test suite.

@@ -51,14 +51,14 @@ type RetryGroup struct {
 // It builds a full DP matrix and backtraces to produce AlignedPair slices.
 // Tie-breaking preference: match > substitute > delete > insert.
 func Align(seqA, seqB []string) AlignResult {
-	// Truncate to last maxToolCalls if needed.
-	if len(seqA) > maxToolCalls {
-		fmt.Fprintf(os.Stderr, "warning: seqA truncated from %d to %d tool calls\n", len(seqA), maxToolCalls)
-		seqA = seqA[len(seqA)-maxToolCalls:]
+	// Truncate to last MaxToolCalls if needed.
+	if len(seqA) > MaxToolCalls {
+		fmt.Fprintf(os.Stderr, "Warning: truncated %d steps to %d for alignment. Use --max-steps to increase.\n", len(seqA), MaxToolCalls)
+		seqA = seqA[len(seqA)-MaxToolCalls:]
 	}
-	if len(seqB) > maxToolCalls {
-		fmt.Fprintf(os.Stderr, "warning: seqB truncated from %d to %d tool calls\n", len(seqB), maxToolCalls)
-		seqB = seqB[len(seqB)-maxToolCalls:]
+	if len(seqB) > MaxToolCalls {
+		fmt.Fprintf(os.Stderr, "Warning: truncated %d steps to %d for alignment. Use --max-steps to increase.\n", len(seqB), MaxToolCalls)
+		seqB = seqB[len(seqB)-MaxToolCalls:]
 	}
 
 	la, lb := len(seqA), len(seqB)

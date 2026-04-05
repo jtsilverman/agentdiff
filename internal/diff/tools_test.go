@@ -274,3 +274,60 @@ func TestJaccardArgs(t *testing.T) {
 	}
 }
 
+func TestToolRemapWithNonToolCallSteps(t *testing.T) {
+	// Steps with interleaved non-tool-call steps.
+	// Original: [text(0), tool_A(1), text(2), tool_B(3)]
+	stepsA := []snapshot.Step{
+		textStep("thinking"),
+		toolStep("Read", map[string]interface{}{"path": "a.go"}),
+		textStep("analyzing"),
+		toolStep("Write", map[string]interface{}{"path": "a.go"}),
+	}
+	stepsB := []snapshot.Step{
+		textStep("thinking"),
+		toolStep("Read", map[string]interface{}{"path": "a.go"}),
+		textStep("analyzing"),
+		toolStep("Write", map[string]interface{}{"path": "a.go"}),
+	}
+
+	_, diag := CompareToolsWithDiagnostics(stepsA, stepsB)
+
+	// RemapA should map tool-call-only indices to original step positions.
+	// Tool index 0 -> original step 1 (Read), tool index 1 -> original step 3 (Write).
+	if len(diag.RemapA) != 2 {
+		t.Fatalf("expected RemapA length 2, got %d", len(diag.RemapA))
+	}
+	if diag.RemapA[0] != 1 {
+		t.Errorf("RemapA[0]: expected 1 (Read at original step 1), got %d", diag.RemapA[0])
+	}
+	if diag.RemapA[1] != 3 {
+		t.Errorf("RemapA[1]: expected 3 (Write at original step 3), got %d", diag.RemapA[1])
+	}
+
+	// Same for RemapB.
+	if len(diag.RemapB) != 2 {
+		t.Fatalf("expected RemapB length 2, got %d", len(diag.RemapB))
+	}
+	if diag.RemapB[0] != 1 {
+		t.Errorf("RemapB[0]: expected 1, got %d", diag.RemapB[0])
+	}
+	if diag.RemapB[1] != 3 {
+		t.Errorf("RemapB[1]: expected 3, got %d", diag.RemapB[1])
+	}
+
+	// Alignment pairs should use tool-only indices (0, 1) which now correctly
+	// map through RemapA/RemapB to original steps (1, 3).
+	for _, p := range diag.Alignment {
+		if p.Op == AlignMatch {
+			origA := diag.RemapA[p.IndexA]
+			origB := diag.RemapB[p.IndexB]
+			if stepsA[origA].ToolCall == nil {
+				t.Errorf("RemapA[%d]=%d points to non-tool step", p.IndexA, origA)
+			}
+			if stepsB[origB].ToolCall == nil {
+				t.Errorf("RemapB[%d]=%d points to non-tool step", p.IndexB, origB)
+			}
+		}
+	}
+}
+

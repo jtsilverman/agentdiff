@@ -7,7 +7,17 @@ import (
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
 
-const maxToolCalls = 1000
+// MaxToolCalls is the maximum number of tool calls to align. Sequences longer
+// than this are truncated to the last MaxToolCalls entries. Override via
+// SetMaxToolCalls (wired to --max-steps CLI flag).
+var MaxToolCalls = 1000
+
+// SetMaxToolCalls overrides the default tool call cap.
+func SetMaxToolCalls(n int) {
+	if n > 0 {
+		MaxToolCalls = n
+	}
+}
 
 // CompareTools computes a ToolDiffResult between two step sequences.
 // It extracts tool call names, computes edit distance, detects added/removed
@@ -29,14 +39,6 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 	seqA := extractToolNames(collapsedA)
 	seqB := extractToolNames(collapsedB)
 
-	// Truncate to last maxToolCalls if needed.
-	if len(seqA) > maxToolCalls {
-		seqA = seqA[len(seqA)-maxToolCalls:]
-	}
-	if len(seqB) > maxToolCalls {
-		seqB = seqB[len(seqB)-maxToolCalls:]
-	}
-
 	// Both empty: identical.
 	if len(seqA) == 0 && len(seqB) == 0 {
 		diag := Diagnostics{
@@ -44,8 +46,8 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 			FirstDivergence: -1,
 			Diverged:        false,
 			RetryGroups:     mergeRetryGroups(groupsA, groupsB),
-			RemapA:          remapA,
-			RemapB:          remapB,
+			RemapA:          buildToolRemap(collapsedA, remapA),
+			RemapB:          buildToolRemap(collapsedB, remapB),
 		}
 		return ToolDiffResult{
 			Added:   []string{},
@@ -68,8 +70,8 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 			FirstDivergence: alignResult.FirstDivergence,
 			Diverged:        alignResult.Diverged,
 			RetryGroups:     mergeRetryGroups(groupsA, groupsB),
-			RemapA:          remapA,
-			RemapB:          remapB,
+			RemapA:          buildToolRemap(collapsedA, remapA),
+			RemapB:          buildToolRemap(collapsedB, remapB),
 		}
 		return ToolDiffResult{
 			Added:    added,
@@ -104,18 +106,23 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 	}
 
 	// Argument score: compare args using alignment pairs.
-	argScore := computeAlignedArgScore(a, alignResult.Pairs, remapA, remapB, collapsedA, collapsedB)
+	argScore := computeAlignedArgScore(alignResult.Pairs, collapsedA, collapsedB)
 
 	// Final score = weighted average.
 	score := 0.6*seqScore + 0.4*argScore
+
+	// Build tool-index-to-original-step remaps so consumers (terminal reports)
+	// can map alignment pair indices directly to original snapshot step positions.
+	toolRemapA := buildToolRemap(collapsedA, remapA)
+	toolRemapB := buildToolRemap(collapsedB, remapB)
 
 	diag := Diagnostics{
 		Alignment:       alignResult.Pairs,
 		FirstDivergence: alignResult.FirstDivergence,
 		Diverged:        alignResult.Diverged,
 		RetryGroups:     mergeRetryGroups(groupsA, groupsB),
-		RemapA:          remapA,
-		RemapB:          remapB,
+		RemapA:          toolRemapA,
+		RemapB:          toolRemapB,
 	}
 
 	return ToolDiffResult{
@@ -125,6 +132,19 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 		EditDist:  editDist,
 		Score:     score,
 	}, diag
+}
+
+// buildToolRemap creates a mapping from tool-call-only index to original step index.
+// Given collapsed steps and collapsed-to-original remap, it returns a slice where
+// toolRemap[toolIdx] = original step index for the toolIdx-th tool call.
+func buildToolRemap(collapsed []snapshot.Step, collapsedRemap []int) []int {
+	var toolRemap []int
+	for i, s := range collapsed {
+		if s.ToolCall != nil {
+			toolRemap = append(toolRemap, collapsedRemap[i])
+		}
+	}
+	return toolRemap
 }
 
 // extractToolNames returns the ordered sequence of tool call names from steps.
@@ -262,11 +282,11 @@ func computeArgScore(a, b []snapshot.Step, seqA, seqB []string) float64 {
 	toolCallsB := extractToolCalls(b)
 
 	// Truncate to match sequences.
-	if len(toolCallsA) > maxToolCalls {
-		toolCallsA = toolCallsA[len(toolCallsA)-maxToolCalls:]
+	if len(toolCallsA) > MaxToolCalls {
+		toolCallsA = toolCallsA[len(toolCallsA)-MaxToolCalls:]
 	}
-	if len(toolCallsB) > maxToolCalls {
-		toolCallsB = toolCallsB[len(toolCallsB)-maxToolCalls:]
+	if len(toolCallsB) > MaxToolCalls {
+		toolCallsB = toolCallsB[len(toolCallsB)-MaxToolCalls:]
 	}
 
 	minLen := len(toolCallsA)
@@ -366,19 +386,12 @@ func serializeValue(v interface{}) string {
 }
 
 // computeAlignedArgScore compares arguments using alignment pairs. For AlignMatch
-// pairs, it uses remap arrays to index into the ORIGINAL step slices for arg
-// comparison via jaccardArgs. Returns 0.0 if all matching args are identical,
+// pairs, it indexes into the tool-call-only subsequences of collapsed steps for
+// arg comparison via jaccardArgs. Returns 0.0 if all matching args are identical,
 // 1.0 if completely different.
-func computeAlignedArgScore(origA []snapshot.Step, pairs []AlignedPair, remapA, remapB []int, collapsedA, collapsedB []snapshot.Step) float64 {
+func computeAlignedArgScore(pairs []AlignedPair, collapsedA, collapsedB []snapshot.Step) float64 {
 	toolCallsA := extractToolCalls(collapsedA)
 	toolCallsB := extractToolCalls(collapsedB)
-
-	// Alignment indices correspond to the tool-call-only subsequence of collapsed
-	// steps. The collapsed steps hold the first representative of each retry group,
-	// which is the original step at remap[collapsedIdx]. Using collapsed tool calls
-	// directly is equivalent to remapping through originals.
-	_ = remapA
-	_ = remapB
 
 	var totalSim float64
 	var count int

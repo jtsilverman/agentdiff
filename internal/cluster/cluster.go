@@ -37,6 +37,9 @@ type MatchResult struct {
 // ClusterBaseline groups a baseline's snapshots into behavioral strategies using DBSCAN.
 // If epsilon is 0, AutoEpsilon is used to select it. minPts controls the DBSCAN density threshold.
 func ClusterBaseline(baseline snapshot.Baseline, epsilon float64, minPts int) (StrategyReport, error) {
+	if minPts < 1 {
+		return StrategyReport{}, fmt.Errorf("minPts must be at least 1 (got %d)", minPts)
+	}
 	minRequired := minPts + 1
 	if minRequired < 3 {
 		minRequired = 3

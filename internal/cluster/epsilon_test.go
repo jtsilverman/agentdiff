@@ -25,6 +25,26 @@ func TestAutoEpsilon_TooFewPoints(t *testing.T) {
 	}
 }
 
+func TestAutoEpsilon_InvalidMinPts(t *testing.T) {
+	dm := [][]int{
+		{0, 1, 2},
+		{1, 0, 1},
+		{2, 1, 0},
+	}
+
+	// minPts = 0: should error.
+	_, err := AutoEpsilon(dm, 0)
+	if err == nil {
+		t.Fatal("expected error for minPts=0, got nil")
+	}
+
+	// minPts = -1: should error.
+	_, err = AutoEpsilon(dm, -1)
+	if err == nil {
+		t.Fatal("expected error for minPts=-1, got nil")
+	}
+}
+
 func TestAutoEpsilon_ClearElbow(t *testing.T) {
 	// Two tight clusters far apart.
 	// Cluster A: indices 0,1,2 with sequences like ["a","b"] variations (edit dist ~1).

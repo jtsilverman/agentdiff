@@ -11,6 +11,9 @@ import (
 // distMatrix must be a symmetric N x N distance matrix. minPts determines k
 // (the k-th nearest neighbor distance for each point).
 func AutoEpsilon(distMatrix [][]int, minPts int) (float64, error) {
+	if minPts < 1 {
+		return 0, errors.New("minPts must be at least 1")
+	}
 	n := len(distMatrix)
 	if n < 3 {
 		return 0, errors.New("need at least 3 points for auto epsilon")

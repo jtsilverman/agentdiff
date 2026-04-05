@@ -34,6 +34,7 @@ func (l *LangChainAdapter) Parse(input []byte) ([]snapshot.Step, map[string]stri
 	seenChainStart := false
 
 	scanner := bufio.NewScanner(bytes.NewReader(input))
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++

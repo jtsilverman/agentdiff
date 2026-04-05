@@ -178,3 +178,26 @@ func TestCompareToCluster_NotMatched(t *testing.T) {
 		t.Error("expected Exemplar to be populated even when not matched")
 	}
 }
+
+func TestClusterBaseline_InvalidMinPts(t *testing.T) {
+	baseline := snapshot.Baseline{
+		Name: "test",
+		Snapshots: []snapshot.Snapshot{
+			makeSnapshot("a", "search", "summarize"),
+			makeSnapshot("b", "search", "summarize"),
+			makeSnapshot("c", "lookup", "answer"),
+		},
+	}
+
+	// minPts = 0: should error.
+	_, err := ClusterBaseline(baseline, 0, 0)
+	if err == nil {
+		t.Fatal("expected error for minPts=0, got nil")
+	}
+
+	// minPts = -1: should error.
+	_, err = ClusterBaseline(baseline, 0, -1)
+	if err == nil {
+		t.Fatal("expected error for minPts=-1, got nil")
+	}
+}

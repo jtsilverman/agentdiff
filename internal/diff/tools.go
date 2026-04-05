@@ -274,51 +274,6 @@ func detectReordered(seqA, seqB []string) bool {
 	return false
 }
 
-// computeArgScore compares arguments at aligned positions where tool names match.
-// Returns 0.0 if all matching args are identical, 1.0 if completely different.
-// If no aligned positions match by name, returns 0.0 (no arg signal).
-func computeArgScore(a, b []snapshot.Step, seqA, seqB []string) float64 {
-	toolCallsA := extractToolCalls(a)
-	toolCallsB := extractToolCalls(b)
-
-	// Truncate to match sequences.
-	if len(toolCallsA) > MaxToolCalls {
-		toolCallsA = toolCallsA[len(toolCallsA)-MaxToolCalls:]
-	}
-	if len(toolCallsB) > MaxToolCalls {
-		toolCallsB = toolCallsB[len(toolCallsB)-MaxToolCalls:]
-	}
-
-	minLen := len(toolCallsA)
-	if len(toolCallsB) < minLen {
-		minLen = len(toolCallsB)
-	}
-
-	var totalSim float64
-	var count int
-
-	for i := 0; i < minLen; i++ {
-		if toolCallsA[i].Name == toolCallsB[i].Name {
-			sim := jaccardArgs(toolCallsA[i].Args, toolCallsB[i].Args)
-			totalSim += sim
-			count++
-		}
-	}
-
-	if count == 0 {
-		// No aligned positions with matching names: if sequences exist but
-		// names never match, args are maximally different.
-		if len(toolCallsA) > 0 || len(toolCallsB) > 0 {
-			return 1.0
-		}
-		return 0.0
-	}
-
-	avgSim := totalSim / float64(count)
-	// Invert: 1.0 similarity = 0.0 score (identical), 0.0 similarity = 1.0 score.
-	return 1.0 - avgSim
-}
-
 // extractToolCalls returns ToolCall values from steps that have tool calls.
 func extractToolCalls(steps []snapshot.Step) []snapshot.ToolCall {
 	var calls []snapshot.ToolCall

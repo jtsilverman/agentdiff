@@ -1,0 +1,4 @@
+thresholds:
+  tool_score: 0.3
+  text_score: 0.5
+  step_delta: 5

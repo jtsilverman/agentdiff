@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jtsilverman/agentdiff/internal/cluster"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
 
@@ -417,4 +419,193 @@ func TestIntegrationBaselineRoundTrip(t *testing.T) {
 			t.Fatalf("expected tool_score to have %q field, got: %v", field, toolScore)
 		}
 	}
+}
+
+// makeClusterSteps creates steps with the given tool sequence.
+func makeClusterSteps(tools []string) []snapshot.Step {
+	var steps []snapshot.Step
+	for _, tool := range tools {
+		steps = append(steps,
+			snapshot.Step{
+				Role:    "assistant",
+				Content: "calling " + tool,
+				ToolCall: &snapshot.ToolCall{
+					Name: tool,
+					Args: map[string]interface{}{"q": tool},
+				},
+			},
+			snapshot.Step{
+				Role:       "tool",
+				ToolResult: &snapshot.ToolResult{Name: tool, Output: "done"},
+			},
+		)
+	}
+	return steps
+}
+
+// setupClusterBaseline creates 6 snapshots (3 search+summarize, 3 lookup+answer) and
+// records them into a baseline named baselineName. Returns the workDir.
+func setupClusterBaseline(t *testing.T, baselineName string) string {
+	t.Helper()
+	workDir := makeWorkDir(t)
+
+	store := snapshot.NewStore(workDir)
+	bs := snapshot.NewBaselineStore(workDir)
+
+	// Group A: search+summarize variants (one has an extra "refine" to create intra-cluster variance).
+	seqsA := [][]string{
+		{"search", "summarize"},
+		{"search", "summarize"},
+		{"search", "summarize", "refine"},
+	}
+	// Group B: lookup+answer variants (one has an extra "format").
+	seqsB := [][]string{
+		{"lookup", "answer"},
+		{"lookup", "answer"},
+		{"lookup", "answer", "format"},
+	}
+
+	var allSnaps []snapshot.Snapshot
+	for i := 0; i < 3; i++ {
+		snapA := snapshot.Snapshot{
+			Name:      fmt.Sprintf("search-%d", i),
+			Source:    "test",
+			Timestamp: time.Now(),
+			Steps:     makeClusterSteps(seqsA[i]),
+		}
+		saved, err := store.Save(snapA)
+		if err != nil {
+			t.Fatalf("save snapshot search-%d: %v", i, err)
+		}
+		allSnaps = append(allSnaps, saved)
+
+		snapB := snapshot.Snapshot{
+			Name:      fmt.Sprintf("lookup-%d", i),
+			Source:    "test",
+			Timestamp: time.Now(),
+			Steps:     makeClusterSteps(seqsB[i]),
+		}
+		saved, err = store.Save(snapB)
+		if err != nil {
+			t.Fatalf("save snapshot lookup-%d: %v", i, err)
+		}
+		allSnaps = append(allSnaps, saved)
+	}
+
+	// Build the baseline directly.
+	baseline := snapshot.Baseline{
+		Name:      baselineName,
+		Snapshots: allSnaps,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	if err := bs.Save(baseline); err != nil {
+		t.Fatalf("save baseline: %v", err)
+	}
+
+	return workDir
+}
+
+func TestIntegrationV3Cluster(t *testing.T) {
+	workDir := setupClusterBaseline(t, "test-strategies")
+
+	stdout, stderr, exitCode := runAgentDiff(t, workDir, "cluster", "test-strategies", "--json")
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0, got %d; stderr: %s", exitCode, stderr)
+	}
+
+	var report cluster.StrategyReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("parse JSON: %v\nstdout: %s", err, stdout)
+	}
+
+	if len(report.Strategies) != 2 {
+		t.Fatalf("expected 2 strategies, got %d; report: %+v", len(report.Strategies), report)
+	}
+
+	for _, s := range report.Strategies {
+		if s.Count != 3 {
+			t.Fatalf("expected strategy %d to have 3 members, got %d", s.ID, s.Count)
+		}
+	}
+}
+
+func TestIntegrationV3ClusterCompare(t *testing.T) {
+	workDir := setupClusterBaseline(t, "test-strategies")
+
+	// Create a new snapshot with tools [search, summarize, cite] -- close to search+summarize.
+	saveTestSnapshot(t, workDir, "new-snap", makeClusterSteps([]string{"search", "summarize", "cite"}))
+
+	stdout, stderr, exitCode := runAgentDiff(t, workDir, "cluster", "compare", "test-strategies", "new-snap", "--json")
+	if exitCode != 0 {
+		t.Fatalf("expected exit 0 (matched), got %d; stderr: %s; stdout: %s", exitCode, stderr, stdout)
+	}
+
+	var result cluster.MatchResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse JSON: %v\nstdout: %s", err, stdout)
+	}
+
+	if !result.Matched {
+		t.Fatalf("expected Matched=true, got false; result: %+v", result)
+	}
+}
+
+func TestIntegrationV3Record(t *testing.T) {
+	// Test agents_sdk adapter.
+	t.Run("agents_sdk", func(t *testing.T) {
+		workDir := makeWorkDir(t)
+		stdout, stderr, exitCode := runAgentDiff(t, workDir,
+			"record", "--name", "agents-sdk-test", testdataFile("agents_sdk_trace.json"))
+		if exitCode != 0 {
+			t.Fatalf("expected exit 0, got %d; stderr: %s", exitCode, stderr)
+		}
+		if !strings.Contains(stdout, "Recorded snapshot") {
+			t.Fatalf("expected 'Recorded snapshot' in output, got: %s", stdout)
+		}
+	})
+
+	// Test langchain adapter.
+	t.Run("langchain", func(t *testing.T) {
+		workDir := makeWorkDir(t)
+		stdout, stderr, exitCode := runAgentDiff(t, workDir,
+			"record", "--name", "langchain-test", testdataFile("langchain_callbacks.jsonl"))
+		if exitCode != 0 {
+			t.Fatalf("expected exit 0, got %d; stderr: %s", exitCode, stderr)
+		}
+		if !strings.Contains(stdout, "Recorded snapshot") {
+			t.Fatalf("expected 'Recorded snapshot' in output, got: %s", stdout)
+		}
+	})
+
+	// Test generic adapter.
+	t.Run("generic", func(t *testing.T) {
+		workDir := makeWorkDir(t)
+
+		// Write .agentdiff.yaml with generic adapter config.
+		yamlContent := `adapter:
+  generic:
+    role_field: "kind"
+    role_map:
+      msg: "assistant"
+      fn_call: "tool_call"
+      fn_output: "tool_result"
+    tool_name_field: "action.fn"
+    tool_args_field: "action.params"
+    tool_output_field: "result"
+    content_field: "body"
+`
+		if err := os.WriteFile(filepath.Join(workDir, ".agentdiff.yaml"), []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		stdout, stderr, exitCode := runAgentDiff(t, workDir,
+			"record", "--name", "generic-test", "--adapter", "generic", testdataFile("generic_trace.jsonl"))
+		if exitCode != 0 {
+			t.Fatalf("expected exit 0, got %d; stderr: %s", exitCode, stderr)
+		}
+		if !strings.Contains(stdout, "Recorded snapshot") {
+			t.Fatalf("expected 'Recorded snapshot' in output, got: %s", stdout)
+		}
+	})
 }

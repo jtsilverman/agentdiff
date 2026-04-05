@@ -41,6 +41,9 @@ func Execute() {
 		if err == ErrRegression {
 			os.Exit(1)
 		}
+		if err == ErrNewStrategy {
+			os.Exit(1)
+		}
 		if err == ErrStyleDrift {
 			os.Exit(2)
 		}

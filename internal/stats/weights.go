@@ -82,11 +82,6 @@ func IsRegression(current diff.DiffResult, stats BaselineStats, weights []Compon
 		"step_delta": stats.StepDelta.Upper,
 	}
 
-	configuredThresholds := map[string]float64{}
-	for _, w := range weights {
-		configuredThresholds[w.Name] = 0
-	}
-
 	for _, w := range weights {
 		val := values[w.Name]
 		upper := uppers[w.Name]

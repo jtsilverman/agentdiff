@@ -108,11 +108,13 @@ func TerminalVerbose(result diff.DiffResult, snapA, snapB snapshot.Snapshot, w i
 	reset := colorReset
 	green := colorGreen
 	red := colorRed
+	yellow := colorYellow
 	if noColor {
 		bold = ""
 		reset = ""
 		green = ""
 		red = ""
+		yellow = ""
 	}
 
 	// Per-step breakdown.
@@ -120,6 +122,82 @@ func TerminalVerbose(result diff.DiffResult, snapA, snapB snapshot.Snapshot, w i
 	fmt.Fprintf(w, "%sPer-Step Breakdown%s\n", bold, reset)
 	fmt.Fprintln(w, strings.Repeat("-", 50))
 
+	if result.Diagnostics != nil {
+		printAlignedSteps(w, result.Diagnostics, snapA, snapB, bold, reset, green, red, yellow, noColor)
+	} else {
+		printPositionalSteps(w, snapA, snapB, green, red, reset, noColor)
+	}
+
+	return nil
+}
+
+// printAlignedSteps renders per-step breakdown using alignment diagnostics.
+func printAlignedSteps(w io.Writer, diag *diff.Diagnostics, snapA, snapB snapshot.Snapshot, bold, reset, green, red, yellow string, noColor bool) {
+	// Divergence warning.
+	if diag.Diverged {
+		fmt.Fprintf(w, "\n%s%sWARNING: Traces diverged (different strategies). Alignment unreliable.%s\n", bold, yellow, reset)
+	}
+
+	// First divergence.
+	if diag.FirstDivergence >= 0 {
+		fmt.Fprintf(w, "\nFirst divergence at aligned step %d\n", diag.FirstDivergence)
+	}
+
+	// Retry groups.
+	if len(diag.RetryGroups) > 0 {
+		fmt.Fprintln(w, "")
+		for _, rg := range diag.RetryGroups {
+			fmt.Fprintf(w, "Retries: %s x%d (A) vs %s x%d (B)\n", rg.ToolName, rg.CountA, rg.ToolName, rg.CountB)
+		}
+	}
+
+	// Walk aligned pairs.
+	for i, pair := range diag.Alignment {
+		fmt.Fprintf(w, "\nAligned step %d:\n", i)
+
+		switch pair.Op {
+		case diff.AlignMatch:
+			origA := diag.RemapA[pair.IndexA]
+			origB := diag.RemapB[pair.IndexB]
+			stepA := &snapA.Steps[origA]
+			stepB := &snapB.Steps[origB]
+
+			fmt.Fprintf(w, "  [A step %d / B step %d] %s\n", origA+1, origB+1, pair.ToolA)
+
+			// Compare args if both have tool calls.
+			if stepA.ToolCall != nil && stepB.ToolCall != nil {
+				printArgDiff(w, stepA.ToolCall.Args, stepB.ToolCall.Args, noColor)
+			}
+
+			// Text content excerpts.
+			if stepA.Content != "" || stepB.Content != "" {
+				if stepA.Content == stepB.Content {
+					fmt.Fprintf(w, "    text: %s\n", truncate(stepA.Content, 120))
+				} else {
+					fmt.Fprintf(w, "    %s- %s%s\n", red, truncate(stepA.Content, 120), reset)
+					fmt.Fprintf(w, "    %s+ %s%s\n", green, truncate(stepB.Content, 120), reset)
+				}
+			}
+
+		case diff.AlignSubst:
+			origA := diag.RemapA[pair.IndexA]
+			origB := diag.RemapB[pair.IndexB]
+			fmt.Fprintf(w, "  %s- [A step %d] %s%s\n", red, origA+1, pair.ToolA, reset)
+			fmt.Fprintf(w, "  %s+ [B step %d] %s%s\n", green, origB+1, pair.ToolB, reset)
+
+		case diff.AlignInsert:
+			origB := diag.RemapB[pair.IndexB]
+			fmt.Fprintf(w, "  %s+ [B only] step %d: %s%s\n", green, origB+1, pair.ToolB, reset)
+
+		case diff.AlignDelete:
+			origA := diag.RemapA[pair.IndexA]
+			fmt.Fprintf(w, "  %s- [A only] step %d: %s%s\n", red, origA+1, pair.ToolA, reset)
+		}
+	}
+}
+
+// printPositionalSteps renders the legacy positional per-step breakdown.
+func printPositionalSteps(w io.Writer, snapA, snapB snapshot.Snapshot, green, red, reset string, noColor bool) {
 	maxSteps := len(snapA.Steps)
 	if len(snapB.Steps) > maxSteps {
 		maxSteps = len(snapB.Steps)
@@ -174,8 +252,6 @@ func TerminalVerbose(result diff.DiffResult, snapA, snapB snapshot.Snapshot, w i
 			}
 		}
 	}
-
-	return nil
 }
 
 func stepSummary(s *snapshot.Step) string {

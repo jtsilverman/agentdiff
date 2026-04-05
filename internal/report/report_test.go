@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jtsilverman/agentdiff/internal/diff"
+	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
 
 func makeResult(verdict diff.Verdict) diff.DiffResult {
@@ -180,5 +181,186 @@ func TestJSONRoundTrip(t *testing.T) {
 	}
 	if len(decoded.ToolDiff.Added) != len(original.ToolDiff.Added) {
 		t.Errorf("added tools count mismatch: got %d, want %d", len(decoded.ToolDiff.Added), len(original.ToolDiff.Added))
+	}
+}
+
+func makeSnapshots() (snapshot.Snapshot, snapshot.Snapshot) {
+	snapA := snapshot.Snapshot{
+		ID:   "snap-a",
+		Name: "snap-a",
+		Steps: []snapshot.Step{
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Read", Args: map[string]interface{}{"path": "/a"}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Edit", Args: map[string]interface{}{"path": "/b"}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Bash", Args: map[string]interface{}{"cmd": "ls"}}},
+		},
+	}
+	snapB := snapshot.Snapshot{
+		ID:   "snap-b",
+		Name: "snap-b",
+		Steps: []snapshot.Step{
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Read", Args: map[string]interface{}{"path": "/a"}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Write", Args: map[string]interface{}{"path": "/c"}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Edit", Args: map[string]interface{}{"path": "/b"}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Bash", Args: map[string]interface{}{"cmd": "ls"}}},
+		},
+	}
+	return snapA, snapB
+}
+
+func TestTerminalVerboseWithDiagnostics(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	snapA, snapB := makeSnapshots()
+	result := makeResult(diff.VerdictChanged)
+	result.Diagnostics = &diff.Diagnostics{
+		Alignment: []diff.AlignedPair{
+			{IndexA: 0, IndexB: 0, Op: diff.AlignMatch, ToolA: "Read", ToolB: "Read"},
+			{IndexA: -1, IndexB: 1, Op: diff.AlignInsert, ToolB: "Write"},
+			{IndexA: 1, IndexB: 2, Op: diff.AlignMatch, ToolA: "Edit", ToolB: "Edit"},
+			{IndexA: 2, IndexB: 3, Op: diff.AlignMatch, ToolA: "Bash", ToolB: "Bash"},
+		},
+		FirstDivergence: 1,
+		Diverged:        false,
+		RemapA:          []int{0, 1, 2},
+		RemapB:          []int{0, 1, 2, 3},
+	}
+
+	var buf bytes.Buffer
+	if err := TerminalVerbose(result, snapA, snapB, &buf); err != nil {
+		t.Fatalf("TerminalVerbose returned error: %v", err)
+	}
+
+	out := buf.String()
+
+	// Should have alignment-aware markers.
+	checks := []string{
+		"Per-Step Breakdown",
+		"First divergence at aligned step 1",
+		"+ [B only] step 2: Write",   // Insert marker (remapB[1]=1, +1 for display)
+		"[A step 1 / B step 1] Read", // Match marker
+		"[A step 2 / B step 3] Edit", // Match marker
+	}
+	for _, want := range checks {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q\nfull output:\n%s", want, out)
+		}
+	}
+
+	// Should NOT have positional "Step N:" markers.
+	if strings.Contains(out, "\nStep 1:\n") {
+		t.Error("alignment mode should not use positional 'Step N:' headers")
+	}
+}
+
+func TestTerminalVerboseWithDiagnosticsSubstAndDelete(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	snapA := snapshot.Snapshot{
+		ID:   "snap-a",
+		Name: "snap-a",
+		Steps: []snapshot.Step{
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Read", Args: map[string]interface{}{}}},
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Bash", Args: map[string]interface{}{}}},
+		},
+	}
+	snapB := snapshot.Snapshot{
+		ID:   "snap-b",
+		Name: "snap-b",
+		Steps: []snapshot.Step{
+			{Role: "assistant", ToolCall: &snapshot.ToolCall{Name: "Write", Args: map[string]interface{}{}}},
+		},
+	}
+
+	result := makeResult(diff.VerdictChanged)
+	result.Diagnostics = &diff.Diagnostics{
+		Alignment: []diff.AlignedPair{
+			{IndexA: 0, IndexB: 0, Op: diff.AlignSubst, ToolA: "Read", ToolB: "Write"},
+			{IndexA: 1, IndexB: -1, Op: diff.AlignDelete, ToolA: "Bash"},
+		},
+		FirstDivergence: 0,
+		Diverged:        true,
+		RemapA:          []int{0, 1},
+		RemapB:          []int{0},
+	}
+
+	var buf bytes.Buffer
+	if err := TerminalVerbose(result, snapA, snapB, &buf); err != nil {
+		t.Fatalf("TerminalVerbose returned error: %v", err)
+	}
+
+	out := buf.String()
+
+	checks := []string{
+		"WARNING: Traces diverged (different strategies). Alignment unreliable.",
+		"First divergence at aligned step 0",
+		"- [A step 1] Read",
+		"+ [B step 1] Write",
+		"- [A only] step 2: Bash",
+	}
+	for _, want := range checks {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q\nfull output:\n%s", want, out)
+		}
+	}
+}
+
+func TestTerminalVerboseWithRetryGroups(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	snapA, snapB := makeSnapshots()
+	result := makeResult(diff.VerdictPass)
+	result.Diagnostics = &diff.Diagnostics{
+		Alignment: []diff.AlignedPair{
+			{IndexA: 0, IndexB: 0, Op: diff.AlignMatch, ToolA: "Read", ToolB: "Read"},
+		},
+		FirstDivergence: -1,
+		Diverged:        false,
+		RetryGroups: []diff.RetryGroup{
+			{ToolName: "Read", CountA: 3, CountB: 2, StartA: 0, StartB: 0},
+		},
+		RemapA: []int{0, 1, 2},
+		RemapB: []int{0, 1, 2, 3},
+	}
+
+	var buf bytes.Buffer
+	if err := TerminalVerbose(result, snapA, snapB, &buf); err != nil {
+		t.Fatalf("TerminalVerbose returned error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Retries: Read x3 (A) vs Read x2 (B)") {
+		t.Errorf("output missing retry group line\nfull output:\n%s", out)
+	}
+}
+
+func TestTerminalVerboseNilDiagnosticsFallback(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	snapA, snapB := makeSnapshots()
+	result := makeResult(diff.VerdictPass)
+	// No diagnostics -- should use positional fallback.
+
+	var buf bytes.Buffer
+	if err := TerminalVerbose(result, snapA, snapB, &buf); err != nil {
+		t.Fatalf("TerminalVerbose returned error: %v", err)
+	}
+
+	out := buf.String()
+
+	// Positional mode should have "Step N:" headers.
+	if !strings.Contains(out, "\nStep 1:\n") {
+		t.Errorf("fallback mode should have positional 'Step 1:' header\nfull output:\n%s", out)
+	}
+	if !strings.Contains(out, "\nStep 2:\n") {
+		t.Errorf("fallback mode should have positional 'Step 2:' header\nfull output:\n%s", out)
+	}
+
+	// Should NOT have alignment markers.
+	if strings.Contains(out, "Aligned step") {
+		t.Error("fallback mode should not contain 'Aligned step'")
 	}
 }

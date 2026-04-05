@@ -22,6 +22,8 @@ then diffs snapshots across runs to surface behavioral regressions.
 
 Works like pytest snapshot testing: record captures a baseline,
 diff compares two snapshots, report summarizes changes in CI-friendly output.`,
+	SilenceErrors: true,
+	SilenceUsage:  true,
 }
 
 func init() {

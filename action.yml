@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         if [ ! -f .agentdiff.yaml ]; then
-          cat > .agentdiff.yaml <<EOF
+        cat > .agentdiff.yaml << 'AGENTDIFF_EOF'
         thresholds:
           tool_score: ${{ inputs.threshold_tool }}
           text_score: ${{ inputs.threshold_text }}
@@ -51,7 +51,7 @@ runs:
         ci:
           baseline_path: "${{ inputs.baseline_path }}"
           fail_on_style_drift: ${{ inputs.fail_on_style_drift }}
-        EOF
+        AGENTDIFF_EOF
         fi
 
     - name: Run AgentDiff CI
@@ -75,4 +75,7 @@ runs:
 
     - name: Exit with AgentDiff result
       shell: bash
-      run: exit ${{ steps.agentdiff.outputs.exit_code }}
+      run: |
+        if [ "${{ steps.agentdiff.outputs.exit_code }}" = "1" ]; then
+          exit 1
+        fi

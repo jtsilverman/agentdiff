@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Detect examines the input bytes and returns the appropriate adapter.
@@ -31,14 +32,14 @@ func Detect(input []byte) (Adapter, error) {
 		}
 		// Might be JSONL (multiple lines starting with '{').
 		if looksLikeJSONL(trimmed) {
-			return &ClaudeAdapter{}, nil
+			return detectJSONLFormat(trimmed), nil
 		}
 		return nil, err
 
 	default:
-		// Check for JSONL (newline-separated JSON objects) -> Claude format.
+		// Check for JSONL (newline-separated JSON objects).
 		if looksLikeJSONL(trimmed) {
-			return &ClaudeAdapter{}, nil
+			return detectJSONLFormat(trimmed), nil
 		}
 		return nil, fmt.Errorf("unrecognized format: not JSON array, object, or JSONL")
 	}
@@ -67,6 +68,13 @@ func detectJSONObject(data []byte) (Adapter, error) {
 		return nil, fmt.Errorf("invalid JSON object: %w", err)
 	}
 
+	// Agents SDK: has trace_id and spans keys.
+	if _, hasTraceID := keys["trace_id"]; hasTraceID {
+		if _, hasSpans := keys["spans"]; hasSpans {
+			return &AgentsSdkAdapter{}, nil
+		}
+	}
+
 	// "choices" key -> OpenAI API response.
 	if _, ok := keys["choices"]; ok {
 		return &OpenAIAdapter{}, nil
@@ -79,6 +87,34 @@ func detectJSONObject(data []byte) (Adapter, error) {
 
 	// Otherwise try Claude (single JSONL object).
 	return &ClaudeAdapter{}, nil
+}
+
+// detectJSONLFormat peeks at the first JSONL line to distinguish LangChain from Claude.
+func detectJSONLFormat(data []byte) Adapter {
+	lines := bytes.Split(data, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			break
+		}
+		// LangChain JSONL: first line has run_id and type starting with "on_".
+		if _, hasRunID := obj["run_id"]; hasRunID {
+			if raw, hasType := obj["type"]; hasType {
+				var typeStr string
+				if err := json.Unmarshal(raw, &typeStr); err == nil {
+					if strings.HasPrefix(typeStr, "on_") {
+						return &LangChainAdapter{}
+					}
+				}
+			}
+		}
+		break
+	}
+	return &ClaudeAdapter{}
 }
 
 // looksLikeJSONL checks if the data contains newline-separated JSON objects.

@@ -3,6 +3,7 @@ package adapter
 import (
 	"fmt"
 
+	"github.com/jtsilverman/agentdiff/internal/config"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
 
@@ -28,4 +29,9 @@ func Get(name string) (Adapter, error) {
 		return nil, fmt.Errorf("unknown adapter: %q", name)
 	}
 	return a, nil
+}
+
+// GetGeneric returns a GenericAdapter configured with the given field mappings.
+func GetGeneric(cfg config.GenericAdapterConfig) Adapter {
+	return NewGenericAdapter(cfg)
 }

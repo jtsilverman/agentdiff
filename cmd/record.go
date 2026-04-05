@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jtsilverman/agentdiff/internal/adapter"
+	"github.com/jtsilverman/agentdiff/internal/config"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,21 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	var a adapter.Adapter
 	var sourceName string
 
-	if recordAdapterName == "auto" {
+	if recordAdapterName == "generic" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get working directory: %w", err)
+		}
+		cfg, err := config.Load(cwd)
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+		if cfg.Adapter.Generic.RoleField == "" {
+			return fmt.Errorf("generic adapter requires adapter.generic.role_field in .agentdiff.yaml")
+		}
+		a = adapter.GetGeneric(cfg.Adapter.Generic)
+		sourceName = "generic"
+	} else if recordAdapterName == "auto" {
 		a, err = adapter.Detect(input)
 		if err != nil {
 			return fmt.Errorf("auto-detect adapter: %w", err)
@@ -121,6 +136,12 @@ func adapterSourceName(a adapter.Adapter) string {
 		return "claude"
 	case *adapter.OpenAIAdapter:
 		return "openai"
+	case *adapter.AgentsSdkAdapter:
+		return "agents_sdk"
+	case *adapter.LangChainAdapter:
+		return "langchain"
+	case *adapter.GenericAdapter:
+		return "generic"
 	default:
 		return "unknown"
 	}

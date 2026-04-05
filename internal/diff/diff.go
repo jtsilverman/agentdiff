@@ -11,12 +11,13 @@ const (
 
 // DiffResult holds the complete comparison between two snapshots.
 type DiffResult struct {
-	Snapshot1 string          `json:"snapshot_1"`
-	Snapshot2 string          `json:"snapshot_2"`
-	Overall   Verdict         `json:"overall"`
-	ToolDiff  ToolDiffResult  `json:"tool_diff"`
-	TextDiff  TextDiffResult  `json:"text_diff"`
-	StepsDiff StepsDiffResult `json:"steps_diff"`
+	Snapshot1   string          `json:"snapshot_1"`
+	Snapshot2   string          `json:"snapshot_2"`
+	Overall     Verdict         `json:"overall"`
+	ToolDiff    ToolDiffResult  `json:"tool_diff"`
+	TextDiff    TextDiffResult  `json:"text_diff"`
+	StepsDiff   StepsDiffResult `json:"steps_diff"`
+	Diagnostics *Diagnostics    `json:"diagnostics,omitempty"`
 }
 
 // ToolDiffResult captures differences in tool usage between two traces.
@@ -39,4 +40,14 @@ type StepsDiffResult struct {
 	CountA int `json:"count_a"`
 	CountB int `json:"count_b"`
 	Delta  int `json:"delta"`
+}
+
+// Diagnostics holds alignment-based diagnostic information for a diff.
+type Diagnostics struct {
+	Alignment       []AlignedPair `json:"alignment"`
+	FirstDivergence int           `json:"first_divergence"`
+	Diverged        bool          `json:"diverged"`
+	RetryGroups     []RetryGroup  `json:"retry_groups,omitempty"`
+	RemapA          []int         `json:"remap_a"`
+	RemapB          []int         `json:"remap_b"`
 }

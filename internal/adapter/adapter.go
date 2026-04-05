@@ -17,6 +17,8 @@ var registry = map[string]Adapter{}
 func init() {
 	registry["claude"] = &ClaudeAdapter{}
 	registry["openai"] = &OpenAIAdapter{}
+	registry["agents_sdk"] = &AgentsSdkAdapter{}
+	registry["langchain"] = &LangChainAdapter{}
 }
 
 // Get returns the adapter registered under the given name.

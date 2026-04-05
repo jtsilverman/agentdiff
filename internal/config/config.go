@@ -9,11 +9,34 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// GenericAdapterConfig holds field mappings for the generic JSONL adapter.
+type GenericAdapterConfig struct {
+	RoleField       string            `yaml:"role_field"`
+	RoleMap         map[string]string `yaml:"role_map"`
+	ToolNameField   string            `yaml:"tool_name_field"`
+	ToolArgsField   string            `yaml:"tool_args_field"`
+	ToolOutputField string            `yaml:"tool_output_field"`
+	ContentField    string            `yaml:"content_field"`
+}
+
+// ClusterConfig holds DBSCAN clustering settings.
+type ClusterConfig struct {
+	Epsilon   float64 `yaml:"epsilon"`
+	MinPoints int     `yaml:"min_points"`
+}
+
+// AdapterConfig holds adapter-specific configuration.
+type AdapterConfig struct {
+	Generic GenericAdapterConfig `yaml:"generic"`
+}
+
 // Config holds all agentdiff configuration.
 type Config struct {
 	Thresholds Thresholds     `yaml:"thresholds"`
 	CI         CIConfig       `yaml:"ci"`
 	Baseline   BaselineConfig `yaml:"baseline"`
+	Adapter    AdapterConfig  `yaml:"adapter"`
+	Cluster    ClusterConfig  `yaml:"cluster"`
 }
 
 // CIConfig holds CI/CD integration settings.
@@ -50,6 +73,11 @@ func DefaultConfig() Config {
 		Baseline: BaselineConfig{
 			Runs:       5,
 			Confidence: 0.95,
+		},
+		Adapter: AdapterConfig{},
+		Cluster: ClusterConfig{
+			Epsilon:   0,
+			MinPoints: 2,
 		},
 	}
 }
@@ -105,6 +133,29 @@ func Load(dir string) (Config, error) {
 		}
 	}
 
+	if fileCfg.Adapter != nil {
+		if generic, ok := fileCfg.Adapter["generic"]; ok {
+			if genericMap, ok := generic.(map[string]interface{}); ok {
+				raw, err := yaml.Marshal(genericMap)
+				if err == nil {
+					var gac GenericAdapterConfig
+					if err := yaml.Unmarshal(raw, &gac); err == nil {
+						cfg.Adapter.Generic = gac
+					}
+				}
+			}
+		}
+	}
+
+	if fileCfg.Cluster != nil {
+		if v, ok := fileCfg.Cluster["epsilon"]; ok {
+			cfg.Cluster.Epsilon = toFloat64(v)
+		}
+		if v, ok := fileCfg.Cluster["min_points"]; ok {
+			cfg.Cluster.MinPoints = toInt(v)
+		}
+	}
+
 	// Validate confidence is in (0.0, 1.0).
 	if cfg.Baseline.Confidence <= 0.0 || cfg.Baseline.Confidence >= 1.0 {
 		return cfg, fmt.Errorf("baseline.confidence must be in (0.0, 1.0), got %v", cfg.Baseline.Confidence)
@@ -119,6 +170,8 @@ type fileConfig struct {
 	Thresholds map[string]interface{} `yaml:"thresholds"`
 	CI         map[string]interface{} `yaml:"ci"`
 	Baseline   map[string]interface{} `yaml:"baseline"`
+	Adapter    map[string]interface{} `yaml:"adapter"`
+	Cluster    map[string]interface{} `yaml:"cluster"`
 }
 
 func toFloat64(v interface{}) float64 {

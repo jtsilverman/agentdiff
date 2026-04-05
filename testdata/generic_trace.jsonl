@@ -1,0 +1,4 @@
+{"kind":"msg","actor":"human","body":"What is the weather in NYC?"}
+{"kind":"fn_call","actor":"bot","action":{"fn":"get_weather","params":{"city":"NYC"}}}
+{"kind":"fn_output","actor":"system","action":{"fn":"get_weather"},"result":"72F and sunny"}
+{"kind":"msg","actor":"bot","body":"It is 72F and sunny in NYC."}

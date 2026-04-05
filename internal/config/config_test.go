@@ -171,6 +171,77 @@ func TestLoadBaselineConfidenceInvalid(t *testing.T) {
 	}
 }
 
+func TestLoadAdapterGenericConfig(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte(`adapter:
+  generic:
+    role_field: kind
+    role_map:
+      msg: user
+      fn_call: tool_call
+    tool_name_field: action.fn
+    tool_args_field: action.params
+    tool_output_field: result
+    content_field: body
+cluster:
+  epsilon: 0.5
+  min_points: 3
+`)
+	if err := os.WriteFile(filepath.Join(dir, ".agentdiff.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Adapter.Generic.RoleField != "kind" {
+		t.Errorf("adapter.generic.role_field: got %q, want %q", cfg.Adapter.Generic.RoleField, "kind")
+	}
+	if cfg.Adapter.Generic.RoleMap["msg"] != "user" {
+		t.Errorf("adapter.generic.role_map[msg]: got %q, want %q", cfg.Adapter.Generic.RoleMap["msg"], "user")
+	}
+	if cfg.Adapter.Generic.RoleMap["fn_call"] != "tool_call" {
+		t.Errorf("adapter.generic.role_map[fn_call]: got %q, want %q", cfg.Adapter.Generic.RoleMap["fn_call"], "tool_call")
+	}
+	if cfg.Adapter.Generic.ToolNameField != "action.fn" {
+		t.Errorf("adapter.generic.tool_name_field: got %q, want %q", cfg.Adapter.Generic.ToolNameField, "action.fn")
+	}
+	if cfg.Adapter.Generic.ToolArgsField != "action.params" {
+		t.Errorf("adapter.generic.tool_args_field: got %q, want %q", cfg.Adapter.Generic.ToolArgsField, "action.params")
+	}
+	if cfg.Adapter.Generic.ToolOutputField != "result" {
+		t.Errorf("adapter.generic.tool_output_field: got %q, want %q", cfg.Adapter.Generic.ToolOutputField, "result")
+	}
+	if cfg.Adapter.Generic.ContentField != "body" {
+		t.Errorf("adapter.generic.content_field: got %q, want %q", cfg.Adapter.Generic.ContentField, "body")
+	}
+	if cfg.Cluster.Epsilon != 0.5 {
+		t.Errorf("cluster.epsilon: got %v, want 0.5", cfg.Cluster.Epsilon)
+	}
+	if cfg.Cluster.MinPoints != 3 {
+		t.Errorf("cluster.min_points: got %v, want 3", cfg.Cluster.MinPoints)
+	}
+	// Defaults for other sections should be preserved.
+	if cfg.Thresholds.ToolScore != 0.3 {
+		t.Errorf("tool_score: got %v, want 0.3 (default)", cfg.Thresholds.ToolScore)
+	}
+}
+
+func TestLoadClusterDefaults(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Cluster.Epsilon != 0 {
+		t.Errorf("cluster.epsilon default: got %v, want 0", cfg.Cluster.Epsilon)
+	}
+	if cfg.Cluster.MinPoints != 2 {
+		t.Errorf("cluster.min_points default: got %v, want 2", cfg.Cluster.MinPoints)
+	}
+}
+
 func TestLoadAllSections(t *testing.T) {
 	dir := t.TempDir()
 	content := []byte(`thresholds:

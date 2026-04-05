@@ -36,8 +36,8 @@ func CompareToolsWithDiagnostics(a, b []snapshot.Step) (ToolDiffResult, Diagnost
 	collapsedB, remapB, groupsB := CollapseRetries(b)
 
 	// Extract tool names from collapsed steps.
-	seqA := extractToolNames(collapsedA)
-	seqB := extractToolNames(collapsedB)
+	seqA := ExtractToolNames(collapsedA)
+	seqB := ExtractToolNames(collapsedB)
 
 	// Both empty: identical.
 	if len(seqA) == 0 && len(seqB) == 0 {
@@ -147,8 +147,8 @@ func buildToolRemap(collapsed []snapshot.Step, collapsedRemap []int) []int {
 	return toolRemap
 }
 
-// extractToolNames returns the ordered sequence of tool call names from steps.
-func extractToolNames(steps []snapshot.Step) []string {
+// ExtractToolNames returns the ordered sequence of tool call names from steps.
+func ExtractToolNames(steps []snapshot.Step) []string {
 	var names []string
 	for _, s := range steps {
 		if s.ToolCall != nil {
@@ -158,8 +158,8 @@ func extractToolNames(steps []snapshot.Step) []string {
 	return names
 }
 
-// levenshtein computes the edit distance between two string sequences.
-func levenshtein(a, b []string) int {
+// Levenshtein computes the edit distance between two string sequences.
+func Levenshtein(a, b []string) int {
 	la, lb := len(a), len(b)
 	if la == 0 {
 		return lb

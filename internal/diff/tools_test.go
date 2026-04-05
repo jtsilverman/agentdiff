@@ -237,7 +237,7 @@ func TestLevenshtein(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := levenshtein(tt.a, tt.b)
+		got := Levenshtein(tt.a, tt.b)
 		if got != tt.want {
 			t.Errorf("levenshtein(%v, %v) = %d, want %d", tt.a, tt.b, got, tt.want)
 		}
@@ -327,6 +327,66 @@ func TestToolRemapWithNonToolCallSteps(t *testing.T) {
 			if stepsB[origB].ToolCall == nil {
 				t.Errorf("RemapB[%d]=%d points to non-tool step", p.IndexB, origB)
 			}
+		}
+	}
+}
+
+func TestLevenshteinDirect(t *testing.T) {
+	// Empty vs non-empty returns len of non-empty.
+	if got := Levenshtein(nil, []string{"a", "b", "c"}); got != 3 {
+		t.Errorf("empty vs non-empty: expected 3, got %d", got)
+	}
+	if got := Levenshtein([]string{"a", "b"}, nil); got != 2 {
+		t.Errorf("non-empty vs empty: expected 2, got %d", got)
+	}
+
+	// Identical returns 0.
+	if got := Levenshtein([]string{"x", "y"}, []string{"x", "y"}); got != 0 {
+		t.Errorf("identical: expected 0, got %d", got)
+	}
+
+	// Single substitution returns 1.
+	if got := Levenshtein([]string{"a", "b", "c"}, []string{"a", "X", "c"}); got != 1 {
+		t.Errorf("single substitution: expected 1, got %d", got)
+	}
+
+	// Completely different returns max len.
+	if got := Levenshtein([]string{"a", "b"}, []string{"c", "d", "e"}); got != 3 {
+		t.Errorf("completely different: expected 3, got %d", got)
+	}
+}
+
+func TestExtractToolNamesDirect(t *testing.T) {
+	// Empty steps returns nil.
+	if got := ExtractToolNames(nil); got != nil {
+		t.Errorf("nil steps: expected nil, got %v", got)
+	}
+
+	// Steps with no tool calls returns nil.
+	noTools := []snapshot.Step{
+		textStep("hello"),
+		textStep("world"),
+	}
+	if got := ExtractToolNames(noTools); got != nil {
+		t.Errorf("no tool calls: expected nil, got %v", got)
+	}
+
+	// Mixed steps returns only tool call names in order.
+	mixed := []snapshot.Step{
+		textStep("thinking"),
+		toolStep("read_file", nil),
+		textStep("analyzing"),
+		toolStep("write_file", nil),
+		toolStep("deploy", nil),
+	}
+	got := ExtractToolNames(mixed)
+	expected := []string{"read_file", "write_file", "deploy"}
+	if len(got) != len(expected) {
+		t.Fatalf("mixed steps: expected %v, got %v", expected, got)
+	}
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Errorf("mixed steps[%d]: expected %q, got %q", i, expected[i], got[i])
 		}
 	}
 }

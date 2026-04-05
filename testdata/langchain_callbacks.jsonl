@@ -1,0 +1,7 @@
+{"type":"on_chain_start","run_id":"chain-001","name":"AgentExecutor","inputs":{"input":"What is the weather in SF?"}}
+{"type":"on_tool_start","run_id":"tool-001","parent_run_id":"chain-001","name":"get_weather","inputs":{"location":"San Francisco"}}
+{"type":"on_tool_end","run_id":"tool-001","parent_run_id":"chain-001","name":"get_weather","outputs":{"output":"72F, sunny"}}
+{"type":"on_tool_start","run_id":"tool-002","parent_run_id":"chain-001","name":"get_forecast","inputs":{"location":"San Francisco","days":3}}
+{"type":"on_tool_end","run_id":"tool-002","parent_run_id":"chain-001","name":"get_forecast","outputs":{"output":"Sunny for the next 3 days"}}
+{"type":"on_llm_end","run_id":"llm-001","parent_run_id":"chain-001","name":"ChatOpenAI","outputs":{"generations":[[{"text":"The weather in San Francisco is 72F and sunny. The forecast shows sunny skies for the next 3 days."}]]}}
+{"type":"on_chain_end","run_id":"chain-001","name":"AgentExecutor","outputs":{"output":"The weather in SF is 72F and sunny."}}

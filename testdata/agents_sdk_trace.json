@@ -1,0 +1,37 @@
+{
+  "trace_id": "trace_abc123",
+  "spans": [
+    {
+      "type": "agent",
+      "name": "MainAgent",
+      "span_data": {
+        "model": "gpt-4o"
+      },
+      "children": [
+        {
+          "type": "function",
+          "name": "get_weather",
+          "span_data": {
+            "input": {"location": "San Francisco"},
+            "output": "72F, sunny"
+          }
+        },
+        {
+          "type": "function",
+          "name": "get_time",
+          "span_data": {
+            "input": "America/Los_Angeles",
+            "output": "2:30 PM PST"
+          }
+        },
+        {
+          "type": "generation",
+          "name": "gen_1",
+          "span_data": {
+            "output": "The weather in SF is 72F and sunny. The time is 2:30 PM PST."
+          }
+        }
+      ]
+    }
+  ]
+}

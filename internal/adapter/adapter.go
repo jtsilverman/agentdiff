@@ -20,6 +20,7 @@ func init() {
 	registry["openai"] = &OpenAIAdapter{}
 	registry["agents_sdk"] = &AgentsSdkAdapter{}
 	registry["langchain"] = &LangChainAdapter{}
+	registry["claudecode"] = &ClaudeCodeAdapter{}
 }
 
 // Get returns the adapter registered under the given name.

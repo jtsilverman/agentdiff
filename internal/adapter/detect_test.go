@@ -112,6 +112,48 @@ func TestDetectJSONLWithoutRunId(t *testing.T) {
 	}
 }
 
+func TestDetectClaudeCodeStreamJSON(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/claudecode_stream.jsonl")
+	if err != nil {
+		t.Fatalf("failed to read testdata: %v", err)
+	}
+
+	a, err := Detect(data)
+	if err != nil {
+		t.Fatalf("Detect failed: %v", err)
+	}
+	if _, ok := a.(*ClaudeCodeAdapter); !ok {
+		t.Errorf("expected ClaudeCodeAdapter, got %T", a)
+	}
+}
+
+func TestDetectClaudeCodeSingleLine(t *testing.T) {
+	input := []byte(`{"type":"assistant","session_id":"s1","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}`)
+
+	a, err := Detect(input)
+	if err != nil {
+		t.Fatalf("Detect failed: %v", err)
+	}
+	if _, ok := a.(*ClaudeCodeAdapter); !ok {
+		t.Errorf("expected ClaudeCodeAdapter, got %T", a)
+	}
+}
+
+func TestDetectClaudeNotMisroutedToClaudeCode(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/claude_trace.jsonl")
+	if err != nil {
+		t.Fatalf("failed to read testdata: %v", err)
+	}
+
+	a, err := Detect(data)
+	if err != nil {
+		t.Fatalf("Detect failed: %v", err)
+	}
+	if _, ok := a.(*ClaudeAdapter); !ok {
+		t.Errorf("expected ClaudeAdapter, got %T", a)
+	}
+}
+
 func TestDetectGarbageInput(t *testing.T) {
 	_, err := Detect([]byte("this is not json at all!!!"))
 	if err == nil {

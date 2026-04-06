@@ -406,14 +406,30 @@ func CrossValidate(pairs []LabeledPair, folds int, rng *rand.Rand) CrossValResul
 	}
 
 	// Build fold assignments: distribute baseline-groups round-robin across folds.
+	// Sort strata keys for deterministic iteration (Go map order is random).
+	strataKeys := make([]stratumKey, 0, len(strata))
+	for sk := range strata {
+		strataKeys = append(strataKeys, sk)
+	}
+	sort.Slice(strataKeys, func(i, j int) bool {
+		if strataKeys[i].IsRegression != strataKeys[j].IsRegression {
+			return strataKeys[i].IsRegression
+		}
+		return strataKeys[i].MutationType < strataKeys[j].MutationType
+	})
+
 	foldAssignment := make([]int, len(pairs))
 	foldCounter := 0
-	for _, baselineGroups := range strata {
-		// Collect groups into a slice for deterministic iteration.
+	for _, sk := range strataKeys {
+		baselineGroups := strata[sk]
+		// Collect groups into a slice and sort by ID for deterministic order.
 		groups := make([]*baselineGroup, 0, len(baselineGroups))
 		for _, bg := range baselineGroups {
 			groups = append(groups, bg)
 		}
+		sort.Slice(groups, func(i, j int) bool {
+			return groups[i].baselineID < groups[j].baselineID
+		})
 		// Shuffle within stratum for randomness.
 		rng.Shuffle(len(groups), func(i, j int) { groups[i], groups[j] = groups[j], groups[i] })
 

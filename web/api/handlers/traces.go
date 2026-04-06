@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/internal/adapter"
@@ -186,7 +187,7 @@ func GetTrace(database *db.DB) http.HandlerFunc {
 
 		trace, err := database.GetTrace(id)
 		if err != nil {
-			if strings.Contains(err.Error(), "get trace") {
+			if errors.Is(err, sql.ErrNoRows) {
 				errorResponse(w, http.StatusNotFound, "trace not found")
 				return
 			}

@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/internal/diff"
@@ -106,7 +107,7 @@ func GetDiff(database *db.DB) http.HandlerFunc {
 
 		traceA, err := database.GetTrace(idA)
 		if err != nil {
-			if strings.Contains(err.Error(), "get trace") {
+			if errors.Is(err, sql.ErrNoRows) {
 				errorResponse(w, http.StatusNotFound, "trace A not found")
 				return
 			}
@@ -116,7 +117,7 @@ func GetDiff(database *db.DB) http.HandlerFunc {
 
 		traceB, err := database.GetTrace(idB)
 		if err != nil {
-			if strings.Contains(err.Error(), "get trace") {
+			if errors.Is(err, sql.ErrNoRows) {
 				errorResponse(w, http.StatusNotFound, "trace B not found")
 				return
 			}

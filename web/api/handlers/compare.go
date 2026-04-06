@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/internal/cluster"
@@ -64,7 +65,7 @@ func PostCompare(database *db.DB) http.HandlerFunc {
 		// Load comparison trace.
 		trace, err := database.GetTrace(req.TraceID)
 		if err != nil {
-			if strings.Contains(err.Error(), "get trace") {
+			if errors.Is(err, sql.ErrNoRows) {
 				errorResponse(w, http.StatusNotFound, "comparison trace not found")
 				return
 			}

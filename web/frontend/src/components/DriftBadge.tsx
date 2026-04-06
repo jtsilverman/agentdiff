@@ -12,7 +12,7 @@ export default function DriftBadge({ result }: { result: MatchResult }) {
         <Badge color="red">New Strategy Detected</Badge>
       )}
       <span className="text-sm text-gray-400">
-        distance: {result.distance.toFixed(3)}
+        distance: {Number.isInteger(result.distance) ? result.distance : result.distance.toFixed(3)}
       </span>
     </div>
   );

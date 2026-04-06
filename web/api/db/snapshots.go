@@ -34,6 +34,8 @@ func (db *DB) InsertSnapshots(traceID string, steps []snapshot.Step) error {
 			toolIsError int
 		)
 
+		// NOTE: Each step should have either ToolCall or ToolResult, not both.
+		// If both are set, ToolResult.Name overwrites ToolCall.Name in the DB row.
 		if step.ToolCall != nil {
 			toolName = &step.ToolCall.Name
 			argsJSON, err := json.Marshal(step.ToolCall.Args)

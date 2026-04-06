@@ -6,7 +6,7 @@ import (
 )
 
 func TestRunBench(t *testing.T) {
-	result := Run(42, false)
+	result := Run(42)
 
 	// Detection metrics in [0,1].
 	if result.Detection.Precision < 0 || result.Detection.Precision > 1 {
@@ -47,14 +47,9 @@ func TestRunBench(t *testing.T) {
 	}
 
 	// FormatTable returns non-empty string.
-	table := FormatTable(result, false)
+	table := FormatTable(result)
 	if len(table) == 0 {
 		t.Error("FormatTable returned empty string")
-	}
-
-	tableVerbose := FormatTable(result, true)
-	if len(tableVerbose) == 0 {
-		t.Error("FormatTable verbose returned empty string")
 	}
 
 	// FormatJSON returns valid JSON.

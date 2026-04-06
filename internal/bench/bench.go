@@ -22,7 +22,7 @@ type BenchResult struct {
 }
 
 // Run executes the full benchmark suite with a given seed.
-func Run(seed int64, verbose bool) BenchResult {
+func Run(seed int64) BenchResult {
 	cfg := DefaultConfig()
 	cfg.Seed = seed
 
@@ -51,7 +51,7 @@ func Run(seed int64, verbose bool) BenchResult {
 }
 
 // FormatTable renders benchmark results as a terminal table.
-func FormatTable(result BenchResult, verbose bool) string {
+func FormatTable(result BenchResult) string {
 	var buf strings.Builder
 	w := tabwriter.NewWriter(&buf, 0, 4, 2, ' ', 0)
 
@@ -96,10 +96,6 @@ func FormatTable(result BenchResult, verbose bool) string {
 	fmt.Fprintf(w, "Optimal tool threshold\t%.2f\n", result.CrossVal.OptimalTool)
 	fmt.Fprintf(w, "Optimal text threshold\t%.2f\n", result.CrossVal.OptimalText)
 	fmt.Fprintf(w, "Optimal step threshold\t%d\n", result.CrossVal.OptimalStep)
-
-	if verbose {
-		fmt.Fprintln(w, "\nVerbose mode: use --json for per-mutation breakdown")
-	}
 
 	w.Flush()
 	return buf.String()

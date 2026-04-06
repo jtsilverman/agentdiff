@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	benchSeed    int64
-	benchVerbose bool
-	benchOutput  string
+	benchSeed   int64
+	benchOutput string
 )
 
 var benchCmd = &cobra.Command{
@@ -19,7 +18,7 @@ var benchCmd = &cobra.Command{
 	Short: "Run empirical validation benchmarks",
 	Long:  "Generates synthetic traces with controlled mutations and measures regression detection precision, recall, threshold calibration, and clustering quality.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		result := bench.Run(benchSeed, benchVerbose)
+		result := bench.Run(benchSeed)
 
 		if jsonOutput || benchOutput != "" {
 			data, err := bench.FormatJSON(result)
@@ -35,7 +34,7 @@ var benchCmd = &cobra.Command{
 				fmt.Println(string(data))
 			}
 		} else {
-			fmt.Print(bench.FormatTable(result, benchVerbose))
+			fmt.Print(bench.FormatTable(result))
 		}
 		return nil // exit code 0 always
 	},
@@ -43,7 +42,6 @@ var benchCmd = &cobra.Command{
 
 func init() {
 	benchCmd.Flags().Int64Var(&benchSeed, "seed", 42, "random seed for reproducibility")
-	benchCmd.Flags().BoolVar(&benchVerbose, "verbose", false, "show per-mutation-type breakdowns")
 	benchCmd.Flags().StringVar(&benchOutput, "output", "", "write JSON results to file")
 	rootCmd.AddCommand(benchCmd)
 }

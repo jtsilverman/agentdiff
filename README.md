@@ -23,7 +23,7 @@ agentdiff diff baseline after-change
 
 ## Supported Formats
 
-- **Claude Code** -- JSONL conversation traces
+- **Claude Code** -- JSONL conversation traces and stream-json format
 - **OpenAI** -- Chat completions messages array (direct or API response wrapper)
 - Auto-detection (default)
 
@@ -55,6 +55,29 @@ thresholds:
     agentdiff record --name current current/trace.jsonl
     agentdiff diff baseline current  # exits 1 on regression
 ```
+
+## Bench Suite
+
+Empirical validation of AgentDiff's regression detection using synthetic traces and mutation testing.
+
+```bash
+# Run bench with table output
+agentdiff bench
+
+# JSON output for CI/plotting
+agentdiff bench --json
+
+# Custom seed, save to file
+agentdiff bench --seed 123 --output results.json
+```
+
+Evaluates four dimensions:
+- **Regression detection** -- precision, recall, F1 on 90 labeled trace pairs (60 mutated + 30 natural variance)
+- **Threshold calibration** -- ROC curves + AUC across tool, text, and step dimensions; identifies optimal operating points
+- **Clustering quality** -- Adjusted Rand Index on DBSCAN clustering of strategy-labeled traces
+- **Cross-validation** -- 5-fold stratified validation with mean/std F1 and averaged optimal thresholds
+
+Deterministic (same seed = same output), runs in <2 seconds.
 
 ## What I Learned
 

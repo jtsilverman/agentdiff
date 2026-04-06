@@ -140,6 +140,8 @@ func adapterSourceName(a adapter.Adapter) string {
 		return "agents_sdk"
 	case *adapter.LangChainAdapter:
 		return "langchain"
+	case *adapter.ClaudeCodeAdapter:
+		return "claudecode"
 	case *adapter.GenericAdapter:
 		return "generic"
 	default:

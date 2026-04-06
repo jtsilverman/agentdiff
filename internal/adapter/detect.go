@@ -68,6 +68,19 @@ func detectJSONObject(data []byte) (Adapter, error) {
 		return nil, fmt.Errorf("invalid JSON object: %w", err)
 	}
 
+	// Claude Code stream-json: has "message" key or is a "system" init line with "subtype".
+	if _, hasMessage := keys["message"]; hasMessage {
+		return &ClaudeCodeAdapter{}, nil
+	}
+	if raw, hasType := keys["type"]; hasType {
+		var typeStr string
+		if json.Unmarshal(raw, &typeStr) == nil && typeStr == "system" {
+			if _, hasSubtype := keys["subtype"]; hasSubtype {
+				return &ClaudeCodeAdapter{}, nil
+			}
+		}
+	}
+
 	// Agents SDK: has trace_id and spans keys.
 	if _, hasTraceID := keys["trace_id"]; hasTraceID {
 		if _, hasSpans := keys["spans"]; hasSpans {
@@ -100,6 +113,18 @@ func detectJSONLFormat(data []byte) Adapter {
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(line, &obj); err != nil {
 			break
+		}
+		// Claude Code stream-json: first line has "message" key or is system init with "subtype".
+		if _, hasMessage := obj["message"]; hasMessage {
+			return &ClaudeCodeAdapter{}
+		}
+		if raw, hasType := obj["type"]; hasType {
+			var typeStr string
+			if json.Unmarshal(raw, &typeStr) == nil && typeStr == "system" {
+				if _, hasSubtype := obj["subtype"]; hasSubtype {
+					return &ClaudeCodeAdapter{}
+				}
+			}
 		}
 		// LangChain JSONL: first line has run_id and type starting with "on_".
 		if _, hasRunID := obj["run_id"]; hasRunID {

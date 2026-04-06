@@ -14,16 +14,13 @@ func RegisterRoutes(r chi.Router, database *db.DB) {
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 
-		// TODO: Baseline endpoints (Task 3)
-		// r.Post("/baselines", handlers.CreateBaseline(database))
-		// r.Get("/baselines", handlers.ListBaselines(database))
-		// r.Get("/baselines/{id}", handlers.GetBaseline(database))
+		// Baseline endpoints
+		r.Post("/baselines", handlers.PostBaseline(database))
+		r.Get("/baselines", handlers.ListBaselines(database))
+		r.Get("/baselines/{id}/cluster", handlers.GetCluster(database))
 
-		// TODO: Cluster endpoints (Task 3)
-		// r.Post("/traces/{id}/cluster", handlers.ClusterTrace(database))
-
-		// TODO: Diff/Compare endpoints (Task 4)
-		// r.Get("/diff", handlers.DiffTraces(database))
-		// r.Get("/compare", handlers.CompareTraces(database))
+		// Diff and compare endpoints
+		r.Get("/diff/{idA}/{idB}", handlers.GetDiff(database))
+		r.Post("/baselines/{id}/compare", handlers.PostCompare(database))
 	})
 }

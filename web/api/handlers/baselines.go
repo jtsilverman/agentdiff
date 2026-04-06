@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/jtsilverman/agentdiff/web/api/db"
 )
@@ -49,6 +50,10 @@ func PostBaseline(database *db.DB) http.HandlerFunc {
 
 		baseline, err := database.CreateBaseline(req.Name, req.TraceIDs)
 		if err != nil {
+			if strings.Contains(err.Error(), "FOREIGN KEY") || strings.Contains(err.Error(), "UNIQUE") {
+				errorResponse(w, http.StatusBadRequest, "invalid trace IDs or duplicate baseline name")
+				return
+			}
 			errorResponse(w, http.StatusInternalServerError, "failed to create baseline")
 			return
 		}

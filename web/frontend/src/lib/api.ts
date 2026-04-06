@@ -27,7 +27,7 @@ export function uploadTrace(
   if (adapter) params.set('adapter', adapter);
   return request<TraceSummary>(`/api/traces?${params.toString()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/octet-stream' },
     body,
   });
 }

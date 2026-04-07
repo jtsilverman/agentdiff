@@ -364,6 +364,22 @@ func TestErrors(t *testing.T) {
 		}
 	})
 
+	t.Run("missing name param returns 400", func(t *testing.T) {
+		resp, err := http.Post(
+			ts.URL+"/api/traces",
+			"application/octet-stream",
+			bytes.NewReader([]byte("data")),
+		)
+		if err != nil {
+			t.Fatalf("POST failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("nonexistent trace returns 404", func(t *testing.T) {
 		resp, err := http.Get(ts.URL + "/api/traces/nonexistent-id-12345")
 		if err != nil {
@@ -393,6 +409,96 @@ func TestErrors(t *testing.T) {
 
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("baseline with no trace_ids returns 400", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]interface{}{
+			"name":      "empty-baseline",
+			"trace_ids": []string{},
+		})
+		resp, err := http.Post(
+			ts.URL+"/api/baselines",
+			"application/json",
+			bytes.NewReader(body),
+		)
+		if err != nil {
+			t.Fatalf("POST failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("diff with nonexistent trace returns 404", func(t *testing.T) {
+		resp, err := http.Get(fmt.Sprintf("%s/api/diff/fake-a/fake-b", ts.URL))
+		if err != nil {
+			t.Fatalf("GET failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("cluster with nonexistent baseline returns 404", func(t *testing.T) {
+		resp, err := http.Get(fmt.Sprintf("%s/api/baselines/fake-id/cluster", ts.URL))
+		if err != nil {
+			t.Fatalf("GET failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("cluster with invalid epsilon returns 400", func(t *testing.T) {
+		resp, err := http.Get(fmt.Sprintf("%s/api/baselines/any/cluster?epsilon=abc", ts.URL))
+		if err != nil {
+			t.Fatalf("GET failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("compare with missing trace_id returns 400", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"trace_id": ""})
+		resp, err := http.Post(
+			fmt.Sprintf("%s/api/baselines/any/compare", ts.URL),
+			"application/json",
+			bytes.NewReader(body),
+		)
+		if err != nil {
+			t.Fatalf("POST failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("compare with nonexistent baseline returns 404", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"trace_id": "some-trace"})
+		resp, err := http.Post(
+			fmt.Sprintf("%s/api/baselines/fake-baseline/compare", ts.URL),
+			"application/json",
+			bytes.NewReader(body),
+		)
+		if err != nil {
+			t.Fatalf("POST failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", resp.StatusCode)
 		}
 	})
 }

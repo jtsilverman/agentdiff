@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -606,24 +607,11 @@ func TestPostTraceInvalidMetadata(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&errBody)
 	if errMsg, ok := errBody["error"]; !ok || len(errMsg) == 0 {
 		t.Errorf("expected error body with message, got %v", errBody)
-	} else if !contains(errMsg, "invalid metadata") {
+	} else if !strings.Contains(errMsg, "invalid metadata") {
 		t.Errorf("expected error to contain 'invalid metadata', got %q", errMsg)
 	}
 }
 
-// contains checks if s contains substr (case-sensitive).
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
 
 func TestListTracesIncludesMetadata(t *testing.T) {
 	ts, _ := setup(t)

@@ -26,6 +26,7 @@ type TraceSummary struct {
 	Name      string
 	Adapter   string
 	StepCount int
+	Metadata  map[string]string
 	CreatedAt time.Time
 }
 
@@ -81,7 +82,7 @@ func (db *DB) ListTraces() ([]TraceSummary, error) {
 	rows, err := db.conn.Query(`
 		SELECT t.id, t.name, t.adapter,
 			(SELECT COUNT(*) FROM snapshots s WHERE s.trace_id = t.id) AS step_count,
-			t.created_at
+			t.metadata, t.created_at
 		FROM traces t
 		ORDER BY t.created_at DESC
 	`)
@@ -93,8 +94,14 @@ func (db *DB) ListTraces() ([]TraceSummary, error) {
 	var traces []TraceSummary
 	for rows.Next() {
 		var t TraceSummary
-		if err := rows.Scan(&t.ID, &t.Name, &t.Adapter, &t.StepCount, &t.CreatedAt); err != nil {
+		var metaStr sql.NullString
+		if err := rows.Scan(&t.ID, &t.Name, &t.Adapter, &t.StepCount, &metaStr, &t.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan trace: %w", err)
+		}
+		if metaStr.Valid && metaStr.String != "" {
+			if err := json.Unmarshal([]byte(metaStr.String), &t.Metadata); err != nil {
+				return nil, fmt.Errorf("unmarshal metadata: %w", err)
+			}
 		}
 		traces = append(traces, t)
 	}

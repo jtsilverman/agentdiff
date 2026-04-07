@@ -89,6 +89,27 @@ func runAgentDiff(t *testing.T, workDir string, args ...string) (string, string,
 	return stdout.String(), stderr.String(), exitCode
 }
 
+// runAgentDiffStdin executes the agentdiff binary with stdin data. Returns stdout.
+func runAgentDiffStdin(t *testing.T, workDir string, stdinData []byte, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(binPath, args...)
+	cmd.Dir = workDir
+	cmd.Stdin = strings.NewReader(string(stdinData))
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("run agentdiff %v: exit %d; stderr: %s", args, exitErr.ExitCode(), stderr.String())
+		}
+		t.Fatalf("run agentdiff %v: %v", args, err)
+	}
+
+	return stdout.String()
+}
+
 func TestIntegrationRecordClaude(t *testing.T) {
 	workDir := makeWorkDir(t)
 

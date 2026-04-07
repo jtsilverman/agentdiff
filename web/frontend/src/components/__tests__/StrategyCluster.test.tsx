@@ -26,6 +26,29 @@ describe('StrategyCluster', () => {
     expect(screen.getByText('write_file')).toBeInTheDocument();
   });
 
+  it('renders metadata summary with value distribution', () => {
+    const reportWithMeta: StrategyReport = {
+      ...mockStrategyReport,
+      strategies: [
+        {
+          ...mockStrategyReport.strategies[0],
+          metadata_summary: {
+            model: { 'gpt-4': 2, claude: 1 },
+          },
+        },
+      ],
+    };
+    render(<StrategyCluster report={reportWithMeta} />);
+    expect(screen.getByText('Metadata')).toBeInTheDocument();
+    expect(screen.getByText('gpt-4 (2)')).toBeInTheDocument();
+    expect(screen.getByText('claude (1)')).toBeInTheDocument();
+  });
+
+  it('does not show metadata section when metadata_summary is absent', () => {
+    render(<StrategyCluster report={mockStrategyReport} />);
+    expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
+  });
+
   it('renders noise traces section when noise.length > 0; hides when empty', () => {
     // With noise
     const { unmount } = render(<StrategyCluster report={mockStrategyReport} />);

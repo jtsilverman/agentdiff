@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -501,4 +504,268 @@ func TestErrors(t *testing.T) {
 			t.Errorf("expected 404, got %d", resp.StatusCode)
 		}
 	})
+}
+
+func TestPostTraceWithMetadata(t *testing.T) {
+	ts, _ := setup(t)
+	claudeData := readTestData(t, "claude_trace.jsonl")
+
+	metaJSON := `{"env":"prod"}`
+	postURL := fmt.Sprintf("%s/api/traces?name=test&metadata=%s", ts.URL, url.QueryEscape(metaJSON))
+	resp, err := http.Post(postURL, "application/octet-stream", bytes.NewReader(claudeData))
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 201, got %d: %s", resp.StatusCode, body)
+	}
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	id, _ := result["id"].(string)
+
+	// GET the trace back and verify metadata.
+	getResp, err := http.Get(fmt.Sprintf("%s/api/traces/%s", ts.URL, id))
+	if err != nil {
+		t.Fatalf("GET failed: %v", err)
+	}
+	defer getResp.Body.Close()
+
+	var detail map[string]interface{}
+	json.NewDecoder(getResp.Body).Decode(&detail)
+
+	metadata, ok := detail["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected metadata map, got %v", detail["metadata"])
+	}
+	if metadata["env"] != "prod" {
+		t.Errorf("expected metadata[env]=prod, got %v", metadata["env"])
+	}
+}
+
+func TestPostTraceMetadataMerge(t *testing.T) {
+	ts, _ := setup(t)
+	claudeData := readTestData(t, "claude_trace.jsonl")
+
+	// The claude adapter detects model from the trace body.
+	// User-provided metadata should override adapter-detected keys.
+	metaJSON := `{"model":"custom-override"}`
+	postURL := fmt.Sprintf("%s/api/traces?name=test&metadata=%s", ts.URL, url.QueryEscape(metaJSON))
+	resp, err := http.Post(postURL, "application/octet-stream", bytes.NewReader(claudeData))
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 201, got %d: %s", resp.StatusCode, body)
+	}
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	id, _ := result["id"].(string)
+
+	// GET the trace back and verify user metadata overrides adapter metadata.
+	getResp, err := http.Get(fmt.Sprintf("%s/api/traces/%s", ts.URL, id))
+	if err != nil {
+		t.Fatalf("GET failed: %v", err)
+	}
+	defer getResp.Body.Close()
+
+	var detail map[string]interface{}
+	json.NewDecoder(getResp.Body).Decode(&detail)
+
+	metadata, ok := detail["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected metadata map, got %v", detail["metadata"])
+	}
+	if metadata["model"] != "custom-override" {
+		t.Errorf("expected metadata[model]=custom-override, got %v", metadata["model"])
+	}
+}
+
+func TestPostTraceInvalidMetadata(t *testing.T) {
+	ts, _ := setup(t)
+	claudeData := readTestData(t, "claude_trace.jsonl")
+
+	postURL := fmt.Sprintf("%s/api/traces?name=test&metadata=%s", ts.URL, url.QueryEscape("notjson"))
+	resp, err := http.Post(postURL, "application/octet-stream", bytes.NewReader(claudeData))
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+
+	var errBody map[string]string
+	json.NewDecoder(resp.Body).Decode(&errBody)
+	if errMsg, ok := errBody["error"]; !ok || len(errMsg) == 0 {
+		t.Errorf("expected error body with message, got %v", errBody)
+	} else if !strings.Contains(errMsg, "invalid metadata") {
+		t.Errorf("expected error to contain 'invalid metadata', got %q", errMsg)
+	}
+}
+
+
+func TestListTracesIncludesMetadata(t *testing.T) {
+	ts, _ := setup(t)
+	claudeData := readTestData(t, "claude_trace.jsonl")
+
+	metaJSON := `{"env":"staging"}`
+	postURL := fmt.Sprintf("%s/api/traces?name=meta-list-test&metadata=%s", ts.URL, url.QueryEscape(metaJSON))
+	resp, err := http.Post(postURL, "application/octet-stream", bytes.NewReader(claudeData))
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 201, got %d: %s", resp.StatusCode, body)
+	}
+
+	// GET /api/traces and find our trace.
+	listResp, err := http.Get(ts.URL + "/api/traces")
+	if err != nil {
+		t.Fatalf("GET /api/traces failed: %v", err)
+	}
+	defer listResp.Body.Close()
+
+	var traces []map[string]interface{}
+	json.NewDecoder(listResp.Body).Decode(&traces)
+
+	found := false
+	for _, tr := range traces {
+		if tr["name"] == "meta-list-test" {
+			found = true
+			metadata, ok := tr["metadata"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected metadata map in list item, got %v", tr["metadata"])
+			}
+			if metadata["env"] != "staging" {
+				t.Errorf("expected metadata[env]=staging, got %v", metadata["env"])
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("trace 'meta-list-test' not found in list response")
+	}
+}
+
+func TestClusterMetadataSummary(t *testing.T) {
+	ts, _ := setup(t)
+	claudeData := readTestData(t, "claude_trace.jsonl")
+
+	// Create 3 traces with identical bodies (same tool sequence) but varying metadata.
+	metas := []string{
+		`{"model":"gpt-4"}`,
+		`{"model":"gpt-4"}`,
+		`{"model":"claude"}`,
+	}
+
+	var traceIDs []string
+	for i, metaJSON := range metas {
+		postURL := fmt.Sprintf("%s/api/traces?name=trace-%d&metadata=%s", ts.URL, i, url.QueryEscape(metaJSON))
+		resp, err := http.Post(postURL, "application/octet-stream", bytes.NewReader(claudeData))
+		if err != nil {
+			t.Fatalf("POST trace-%d failed: %v", i, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			body, _ := io.ReadAll(resp.Body)
+			t.Fatalf("trace-%d: expected 201, got %d: %s", i, resp.StatusCode, body)
+		}
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		id, _ := result["id"].(string)
+		traceIDs = append(traceIDs, id)
+	}
+
+	// Create baseline with all 3 traces.
+	baselineBody, _ := json.Marshal(map[string]interface{}{
+		"name":      "meta-cluster-test",
+		"trace_ids": traceIDs,
+	})
+	baseResp, err := http.Post(
+		ts.URL+"/api/baselines",
+		"application/json",
+		bytes.NewReader(baselineBody),
+	)
+	if err != nil {
+		t.Fatalf("POST /api/baselines failed: %v", err)
+	}
+	defer baseResp.Body.Close()
+
+	if baseResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(baseResp.Body)
+		t.Fatalf("expected 201 for baseline, got %d: %s", baseResp.StatusCode, body)
+	}
+
+	var baseline map[string]interface{}
+	json.NewDecoder(baseResp.Body).Decode(&baseline)
+	baselineID, _ := baseline["id"].(string)
+
+	// GET cluster.
+	clusterResp, err := http.Get(fmt.Sprintf("%s/api/baselines/%s/cluster", ts.URL, baselineID))
+	if err != nil {
+		t.Fatalf("GET cluster failed: %v", err)
+	}
+	defer clusterResp.Body.Close()
+
+	if clusterResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(clusterResp.Body)
+		t.Fatalf("expected 200 for cluster, got %d: %s", clusterResp.StatusCode, body)
+	}
+
+	var report map[string]interface{}
+	json.NewDecoder(clusterResp.Body).Decode(&report)
+
+	strategies, ok := report["strategies"].([]interface{})
+	if !ok || len(strategies) == 0 {
+		t.Fatalf("expected at least 1 strategy, got %v", report["strategies"])
+	}
+
+	// Find the strategy that contains all 3 members.
+	var targetStrategy map[string]interface{}
+	for _, s := range strategies {
+		strat, _ := s.(map[string]interface{})
+		members, _ := strat["members"].([]interface{})
+		if len(members) == 3 {
+			targetStrategy = strat
+			break
+		}
+	}
+	if targetStrategy == nil {
+		t.Fatal("no strategy found with 3 members")
+	}
+
+	// Assert metadata_summary has model key with correct distribution.
+	metaSummary, ok := targetStrategy["metadata_summary"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected metadata_summary map, got %v", targetStrategy["metadata_summary"])
+	}
+
+	modelDist, ok := metaSummary["model"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected metadata_summary[model] map, got %v", metaSummary["model"])
+	}
+
+	gpt4Count, _ := modelDist["gpt-4"].(float64)
+	claudeCount, _ := modelDist["claude"].(float64)
+
+	if gpt4Count != 2 {
+		t.Errorf("expected gpt-4 count=2, got %v", gpt4Count)
+	}
+	if claudeCount != 1 {
+		t.Errorf("expected claude count=1, got %v", claudeCount)
+	}
 }

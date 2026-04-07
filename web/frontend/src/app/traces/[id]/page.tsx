@@ -6,6 +6,7 @@ import { Title, Text, Badge, Button, TextInput } from '@tremor/react';
 import { getTrace } from '@/lib/api';
 import type { TraceDetail } from '@/lib/types';
 import StepList from '@/components/StepList';
+import MetadataBadges from '@/components/MetadataBadges';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -44,6 +45,11 @@ export default function TraceDetailPage() {
             {new Date(trace.created_at).toLocaleString()}
           </Text>
         </div>
+        {trace.metadata && Object.keys(trace.metadata).length > 0 && (
+          <div className="mt-3">
+            <MetadataBadges metadata={trace.metadata} />
+          </div>
+        )}
       </div>
 
       {/* Diff launcher */}

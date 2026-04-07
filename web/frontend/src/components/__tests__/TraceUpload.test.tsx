@@ -93,7 +93,46 @@ describe('TraceUpload', () => {
     fireEvent.drop(dropZone, createDropEvent(file));
 
     await waitFor(() => {
-      expect(mockedUploadTrace).toHaveBeenCalledWith('{"line":1}', 'my-trace');
+      expect(mockedUploadTrace).toHaveBeenCalledWith('{"line":1}', 'my-trace', undefined, undefined);
+    });
+  });
+
+  it('add metadata button adds entry row with key and value inputs', () => {
+    render(<TraceUpload onUploaded={vi.fn()} />);
+    const addBtn = screen.getByText('Add metadata');
+
+    fireEvent.click(addBtn);
+
+    expect(screen.getByPlaceholderText('key')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('value')).toBeInTheDocument();
+  });
+
+  it('passes metadata entries to uploadTrace', async () => {
+    mockedUploadTrace.mockResolvedValue(mockTrace);
+
+    render(<TraceUpload onUploaded={vi.fn()} />);
+
+    // Add a metadata entry
+    fireEvent.click(screen.getByText('Add metadata'));
+
+    const keyInput = screen.getByPlaceholderText('key');
+    const valueInput = screen.getByPlaceholderText('value');
+
+    fireEvent.change(keyInput, { target: { value: 'env' } });
+    fireEvent.change(valueInput, { target: { value: 'prod' } });
+
+    // Drop a file
+    const dropZone = screen.getByText('Drop JSONL file here').closest('div[class*="border-dashed"]')!;
+    const file = new File(['{"data":"test"}'], 'trace.jsonl', { type: 'application/json' });
+    fireEvent.drop(dropZone, createDropEvent(file));
+
+    await waitFor(() => {
+      expect(mockedUploadTrace).toHaveBeenCalledWith(
+        '{"data":"test"}',
+        'trace',
+        undefined,
+        { env: 'prod' },
+      );
     });
   });
 });

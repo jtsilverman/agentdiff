@@ -22,9 +22,13 @@ export function uploadTrace(
   body: string,
   name: string,
   adapter?: string,
+  metadata?: Record<string, string>,
 ): Promise<TraceSummary> {
   const params = new URLSearchParams({ name });
   if (adapter) params.set('adapter', adapter);
+  if (metadata && Object.keys(metadata).length > 0) {
+    params.set('metadata', JSON.stringify(metadata));
+  }
   return request<TraceSummary>(`/api/traces?${params.toString()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/octet-stream' },

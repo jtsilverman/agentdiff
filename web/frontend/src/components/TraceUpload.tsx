@@ -11,6 +11,7 @@ interface TraceUploadProps {
 export default function TraceUpload({ onUploaded }: TraceUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [nameOverride, setNameOverride] = useState('');
+  const [metadataEntries, setMetadataEntries] = useState<Array<{ key: string; value: string }>>([]);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -21,9 +22,16 @@ export default function TraceUpload({ onUploaded }: TraceUploadProps) {
       try {
         const content = await file.text();
         const name = nameOverride.trim() || file.name.replace(/\.jsonl?$/, '');
-        await uploadTrace(content, name);
+        const metadata = metadataEntries
+          .filter((e) => e.key.trim() !== '')
+          .reduce<Record<string, string>>((acc, e) => {
+            acc[e.key.trim()] = e.value;
+            return acc;
+          }, {});
+        await uploadTrace(content, name, undefined, Object.keys(metadata).length > 0 ? metadata : undefined);
         setStatus({ type: 'success', message: `Uploaded "${name}" successfully.` });
         setNameOverride('');
+        setMetadataEntries([]);
         onUploaded();
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed';
@@ -32,7 +40,7 @@ export default function TraceUpload({ onUploaded }: TraceUploadProps) {
         setUploading(false);
       }
     },
-    [nameOverride, onUploaded],
+    [nameOverride, metadataEntries, onUploaded],
   );
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -63,6 +71,44 @@ export default function TraceUpload({ onUploaded }: TraceUploadProps) {
           value={nameOverride}
           onValueChange={setNameOverride}
         />
+      </div>
+      <div className="mb-3 space-y-2">
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => setMetadataEntries([...metadataEntries, { key: '', value: '' }])}
+        >
+          Add metadata
+        </Button>
+        {metadataEntries.map((entry, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <TextInput
+              placeholder="key"
+              value={entry.key}
+              onValueChange={(v) => {
+                const updated = [...metadataEntries];
+                updated[i] = { ...updated[i], key: v };
+                setMetadataEntries(updated);
+              }}
+            />
+            <TextInput
+              placeholder="value"
+              value={entry.value}
+              onValueChange={(v) => {
+                const updated = [...metadataEntries];
+                updated[i] = { ...updated[i], value: v };
+                setMetadataEntries(updated);
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="xs"
+              onClick={() => setMetadataEntries(metadataEntries.filter((_, j) => j !== i))}
+            >
+              x
+            </Button>
+          </div>
+        ))}
       </div>
       <div
         onDragOver={onDragOver}

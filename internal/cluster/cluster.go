@@ -18,11 +18,12 @@ type StrategyReport struct {
 
 // Strategy represents a cluster of snapshots that follow a similar tool-call pattern.
 type Strategy struct {
-	ID       int      `json:"id"`
-	Count    int      `json:"count"`
-	Exemplar string   `json:"exemplar"`
-	ToolSeq  []string `json:"tool_sequence"`
-	Members  []string `json:"members"`
+	ID              int                       `json:"id"`
+	Count           int                       `json:"count"`
+	Exemplar        string                    `json:"exemplar"`
+	ToolSeq         []string                  `json:"tool_sequence"`
+	Members         []string                  `json:"members"`
+	MetadataSummary map[string]map[string]int `json:"metadata_summary"`
 }
 
 // MatchResult describes whether a snapshot matches an existing strategy.
@@ -76,15 +77,23 @@ func ClusterBaseline(baseline snapshot.Baseline, epsilon float64, minPts int) (S
 	strategies := make([]Strategy, len(result.Clusters))
 	for i, c := range result.Clusters {
 		members := make([]string, len(c.Members))
+		metaSummary := make(map[string]map[string]int)
 		for j, idx := range c.Members {
 			members[j] = baseline.Snapshots[idx].Name
+			for k, v := range baseline.Snapshots[idx].Metadata {
+				if metaSummary[k] == nil {
+					metaSummary[k] = make(map[string]int)
+				}
+				metaSummary[k][v]++
+			}
 		}
 		strategies[i] = Strategy{
-			ID:       c.ID,
-			Count:    len(c.Members),
-			Exemplar: baseline.Snapshots[c.Exemplar].Name,
-			ToolSeq:  seqs[c.Exemplar],
-			Members:  members,
+			ID:              c.ID,
+			Count:           len(c.Members),
+			Exemplar:        baseline.Snapshots[c.Exemplar].Name,
+			ToolSeq:         seqs[c.Exemplar],
+			Members:         members,
+			MetadataSummary: metaSummary,
 		}
 	}
 

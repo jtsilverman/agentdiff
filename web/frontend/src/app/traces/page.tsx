@@ -18,6 +18,7 @@ import {
 import { listTraces, createBaseline } from '@/lib/api';
 import type { TraceSummary } from '@/lib/types';
 import TraceUpload from '@/components/TraceUpload';
+import MetadataBadges from '@/components/MetadataBadges';
 
 export default function TracesPage() {
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -120,6 +121,7 @@ export default function TracesPage() {
                 </TableHeaderCell>
                 <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Adapter</TableHeaderCell>
+                <TableHeaderCell>Metadata</TableHeaderCell>
                 <TableHeaderCell>Steps</TableHeaderCell>
                 <TableHeaderCell>Date</TableHeaderCell>
               </TableRow>
@@ -145,6 +147,9 @@ export default function TracesPage() {
                   </TableCell>
                   <TableCell>
                     <Badge>{trace.adapter}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <MetadataBadges metadata={trace.metadata} />
                   </TableCell>
                   <TableCell>{trace.step_count}</TableCell>
                   <TableCell className="text-sm text-gray-400">

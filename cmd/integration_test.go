@@ -24,7 +24,12 @@ func TestMain(m *testing.M) {
 	}
 
 	binPath = filepath.Join(tmpDir, "agentdiff")
-	build := exec.Command(filepath.Join(os.Getenv("HOME"), "go-sdk", "go", "bin", "go"), "build", "-o", binPath, ".")
+	goCmd, err := exec.LookPath("go")
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		panic("find go binary: " + err.Error())
+	}
+	build := exec.Command(goCmd, "build", "-o", binPath, ".")
 	build.Dir = filepath.Join(projectRoot())
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {

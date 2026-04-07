@@ -22,11 +22,12 @@ type traceResponse struct {
 
 // traceSummaryResponse is the JSON response for GET /api/traces list items.
 type traceSummaryResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Adapter   string `json:"adapter"`
-	StepCount int    `json:"step_count"`
-	CreatedAt string `json:"created_at"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Adapter   string            `json:"adapter"`
+	StepCount int               `json:"step_count"`
+	Metadata  map[string]string `json:"metadata"`
+	CreatedAt string            `json:"created_at"`
 }
 
 // traceDetailResponse is the JSON response for GET /api/traces/:id.
@@ -109,6 +110,16 @@ func PostTrace(database *db.DB) http.HandlerFunc {
 			return
 		}
 
+		// Parse optional user-provided metadata.
+		metadataParam := r.URL.Query().Get("metadata")
+		var userMeta map[string]string
+		if metadataParam != "" {
+			if err := json.Unmarshal([]byte(metadataParam), &userMeta); err != nil {
+				errorResponse(w, http.StatusBadRequest, "invalid metadata: "+err.Error())
+				return
+			}
+		}
+
 		adapterParam := r.URL.Query().Get("adapter")
 		var detectedAdapter adapter.Adapter
 		var adapterName string
@@ -133,6 +144,16 @@ func PostTrace(database *db.DB) http.HandlerFunc {
 		if err != nil {
 			errorResponse(w, http.StatusBadRequest, "failed to parse trace: "+err.Error())
 			return
+		}
+
+		// Merge user-provided metadata (user keys override adapter keys).
+		if len(userMeta) > 0 {
+			if metadata == nil {
+				metadata = make(map[string]string)
+			}
+			for k, v := range userMeta {
+				metadata[k] = v
+			}
 		}
 
 		trace, err := database.CreateTrace(name, adapterName, metadata)
@@ -173,6 +194,7 @@ func ListTraces(database *db.DB) http.HandlerFunc {
 				Name:      t.Name,
 				Adapter:   t.Adapter,
 				StepCount: t.StepCount,
+				Metadata:  t.Metadata,
 				CreatedAt: t.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			}
 		}

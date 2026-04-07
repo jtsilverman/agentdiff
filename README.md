@@ -46,7 +46,23 @@ thresholds:
   step_delta: 5      # step count change above this = regression
 ```
 
-## CI Usage
+## GitHub Action
+
+Add to your workflow to catch agent regressions on every PR:
+
+```yaml
+- uses: jtsilverman/agentdiff@v0
+  with:
+    baseline_path: ".agentdiff/baselines/main.json.gz"  # optional
+    threshold_tool: "0.3"   # tool diff threshold (0.0-1.0)
+    threshold_text: "0.5"   # text diff threshold (0.0-1.0)
+    threshold_steps: "5"    # step count delta threshold
+    fail_on_style_drift: "false"  # fail on text-only regressions
+```
+
+On pull requests, posts a sticky comment with the regression report. Exits 1 if regressions are detected.
+
+## CI Usage (Manual)
 
 ```yaml
 - name: Check for agent regressions

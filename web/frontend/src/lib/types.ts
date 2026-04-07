@@ -3,6 +3,7 @@ export interface TraceSummary {
   name: string;
   adapter: string;
   step_count: number;
+  metadata?: Record<string, string>;
   created_at: string;
 }
 
@@ -55,6 +56,7 @@ export interface Strategy {
   exemplar: string;
   tool_sequence: string[];
   members: string[];
+  metadata_summary?: Record<string, Record<string, number>>;
 }
 
 export interface DiffTraceRef {

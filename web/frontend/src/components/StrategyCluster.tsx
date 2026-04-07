@@ -41,6 +41,32 @@ export default function StrategyCluster({ report }: { report: StrategyReport }) 
                 </Badge>
               ))}
             </div>
+            {strategy.metadata_summary &&
+              Object.keys(strategy.metadata_summary).length > 0 && (
+                <div className="mt-3 space-y-1">
+                  <Text className="text-xs text-gray-400">Metadata</Text>
+                  {Object.entries(strategy.metadata_summary).map(([key, dist]) => {
+                    const values = Object.entries(dist);
+                    const isUnanimous = values.length === 1;
+                    return (
+                      <div key={key} className="flex items-center gap-2">
+                        <Text className="text-xs text-gray-500">{key}:</Text>
+                        <div className="flex flex-wrap gap-1">
+                          {values.map(([val, count]) => (
+                            <Badge
+                              key={val}
+                              color={isUnanimous ? color : 'gray'}
+                              size="sm"
+                            >
+                              {val} ({count})
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
           </Card>
         );
       })}

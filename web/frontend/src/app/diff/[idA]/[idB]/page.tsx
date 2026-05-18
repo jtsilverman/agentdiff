@@ -6,6 +6,7 @@ import { Title, Text, Badge } from '@tremor/react';
 import { getDiff, getTrace } from '@/lib/api';
 import type { DiffResponse, TraceDetail } from '@/lib/types';
 import DiffView from '@/components/DiffView';
+import TriagePanel from '@/components/TriagePanel';
 
 export default function DiffPage() {
   const params = useParams<{ idA: string; idB: string }>();
@@ -81,6 +82,9 @@ export default function DiffPage() {
         })()}
       </div>
       <DiffView diff={diff} />
+      <div className="mt-6">
+        <TriagePanel idA={params.idA} idB={params.idB} />
+      </div>
     </div>
   );
 }

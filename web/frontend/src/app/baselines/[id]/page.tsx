@@ -18,6 +18,7 @@ import type {
 import PathGraph from '@/components/PathGraph';
 import StrategyCluster from '@/components/StrategyCluster';
 import DriftBadge from '@/components/DriftBadge';
+import TriagePanel from '@/components/TriagePanel';
 
 export default function BaselineDetailPage() {
   const params = useParams<{ id: string }>();
@@ -108,6 +109,12 @@ export default function BaselineDetailPage() {
           </Text>
         )}
       </Card>
+
+      {(() => {
+        const exemplar = report.strategies[0]?.exemplar;
+        if (!selectedTraceId || !exemplar || selectedTraceId === exemplar) return null;
+        return <TriagePanel idA={exemplar} idB={selectedTraceId} />;
+      })()}
 
       <Card>
         <Title>Traces in this baseline</Title>

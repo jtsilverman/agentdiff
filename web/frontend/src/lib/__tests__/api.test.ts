@@ -7,6 +7,7 @@ import {
   listBaselines,
   getCluster,
   getDiff,
+  getTriage,
   compareTrace,
 } from '../api';
 
@@ -145,6 +146,22 @@ describe('getDiff', () => {
     const result = await getDiff('a1', 'b1');
 
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/diff/a1/b1', undefined);
+    expect(result).toEqual(fixture);
+  });
+});
+
+describe('getTriage', () => {
+  it('calls GET /api/diff/{idA}/{idB}/triage and returns parsed TriageResponse', async () => {
+    const fixture = {
+      summary: 'trace B added a tool call',
+      classification: 'additive',
+      likely_cause: 'agent learned a new tool',
+    };
+    globalThis.fetch = mockFetchResponse(fixture);
+
+    const result = await getTriage('a1', 'b1');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/diff/a1/b1/triage', undefined);
     expect(result).toEqual(fixture);
   });
 });

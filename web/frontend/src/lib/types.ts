@@ -128,3 +128,11 @@ export interface OverlayResult {
   matched_edge_ids: string[];
   divergence_points: DivergencePoint[];
 }
+
+export type TriageClassification = 'regression' | 'variance' | 'additive';
+
+export interface TriageResponse {
+  summary: string;
+  classification: TriageClassification;
+  likely_cause: string;
+}

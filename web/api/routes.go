@@ -7,7 +7,7 @@ import (
 )
 
 // RegisterRoutes wires all API handlers onto the router.
-func RegisterRoutes(r chi.Router, database *db.DB) {
+func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager) {
 	r.Route("/api", func(r chi.Router) {
 		// Trace endpoints
 		r.Post("/traces", handlers.PostTrace(database))
@@ -21,6 +21,7 @@ func RegisterRoutes(r chi.Router, database *db.DB) {
 
 		// Diff and compare endpoints
 		r.Get("/diff/{idA}/{idB}", handlers.GetDiff(database))
+		r.Get("/diff/{idA}/{idB}/triage", handlers.GetTriage(database, triager))
 		r.Post("/baselines/{id}/compare", handlers.PostCompare(database))
 
 		// Path graph endpoints

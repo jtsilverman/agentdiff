@@ -7,6 +7,7 @@ import type {
   MatchResult,
   PathGraph,
   OverlayResult,
+  TriageResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -77,6 +78,10 @@ export function getCluster(
 
 export function getDiff(idA: string, idB: string): Promise<DiffResponse> {
   return request<DiffResponse>(`/api/diff/${idA}/${idB}`);
+}
+
+export function getTriage(idA: string, idB: string): Promise<TriageResponse> {
+  return request<TriageResponse>(`/api/diff/${idA}/${idB}/triage`);
 }
 
 export function compareTrace(

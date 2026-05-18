@@ -11,15 +11,27 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/api');
 
-import { getDiff } from '@/lib/api';
+import { getDiff, getTrace, getTriage } from '@/lib/api';
 import DiffPage from '../diff/[idA]/[idB]/page';
 
 const mockedGetDiff = vi.mocked(getDiff);
+const mockedGetTrace = vi.mocked(getTrace);
+const mockedGetTriage = vi.mocked(getTriage);
 
 describe('DiffPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseParams.mockReturnValue({ idA: 'a1', idB: 'b1' });
+    mockedGetTrace.mockResolvedValue({
+      id: 'a1',
+      name: 'trace-a',
+      adapter: 'claude',
+      source: '',
+      metadata: {},
+      steps: [],
+      created_at: '2026-01-01',
+    });
+    mockedGetTriage.mockReturnValue(new Promise(() => {}));
   });
 
   it('shows loading, then renders diff title with both trace names', async () => {

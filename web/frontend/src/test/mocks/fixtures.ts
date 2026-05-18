@@ -5,6 +5,8 @@ import type {
   StrategyReport,
   DiffResponse,
   MatchResult,
+  PathGraph,
+  OverlayResult,
 } from '@/lib/types';
 
 export const mockTrace: TraceSummary = {
@@ -99,4 +101,31 @@ export const mockDriftResult: MatchResult = {
   exemplar: '',
   distance: 12.345,
   max_intra_cluster_dist: 5,
+};
+
+export const mockPathGraph: PathGraph = {
+  nodes: [
+    { id: 'read_file', tool_name: 'read_file', count: 5 },
+    { id: 'write_file', tool_name: 'write_file', count: 4 },
+    { id: 'bash', tool_name: 'bash', count: 1 },
+  ],
+  edges: [
+    { from: 'read_file', to: 'write_file', count: 4, weight: 0.8 },
+    { from: 'read_file', to: 'bash', count: 1, weight: 0.2 },
+  ],
+  stats: { total_runs: 5, branch_points: 1 },
+};
+
+export const mockEmptyPathGraph: PathGraph = {
+  nodes: [],
+  edges: [],
+  stats: { total_runs: 0, branch_points: 0 },
+};
+
+export const mockOverlay: OverlayResult = {
+  matched_node_ids: ['read_file', 'write_file'],
+  matched_edge_ids: ['read_file->write_file'],
+  divergence_points: [
+    { node_id: 'read_file', baseline_pct: 0.2, this_trace_chose: 'bash' },
+  ],
 };

@@ -1,7 +1,12 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { mockUseParams } from '@/test/mocks/next-navigation';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { mockStrategyReport, mockMatchResult } from '@/test/mocks/fixtures';
+import {
+  mockStrategyReport,
+  mockMatchResult,
+  mockPathGraph,
+  mockOverlay,
+} from '@/test/mocks/fixtures';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => (
@@ -11,22 +16,31 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/api');
 
-import { getCluster, compareTrace } from '@/lib/api';
+import {
+  getCluster,
+  compareTrace,
+  getGraph,
+  getOverlay,
+} from '@/lib/api';
 import BaselineDetailPage from '../baselines/[id]/page';
 
 const mockedGetCluster = vi.mocked(getCluster);
 const mockedCompareTrace = vi.mocked(compareTrace);
+const mockedGetGraph = vi.mocked(getGraph);
+const mockedGetOverlay = vi.mocked(getOverlay);
 
 describe('BaselineDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseParams.mockReturnValue({ id: 'bl-1' });
+    mockedGetGraph.mockResolvedValue(mockPathGraph);
+    mockedGetOverlay.mockResolvedValue(mockOverlay);
   });
 
   it('shows loading, then renders StrategyCluster with report data', async () => {
     mockedGetCluster.mockResolvedValue(mockStrategyReport);
     render(<BaselineDetailPage />);
-    expect(screen.getByText('Loading cluster data...')).toBeInTheDocument();
+    expect(screen.getByText('Loading baseline...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('test-baseline')).toBeInTheDocument();
@@ -92,6 +106,39 @@ describe('BaselineDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Error: Compare exploded')).toBeInTheDocument();
+    });
+  });
+
+  it('renders the PathGraph hero with nodes from getGraph', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    render(<BaselineDetailPage />);
+
+    // 'bash' is unique to the PathGraph fixture (not in the cluster fixture's
+    // tool_sequence), so it gates on PathGraph having actually rendered.
+    await waitFor(() => {
+      expect(screen.getByText('bash')).toBeInTheDocument();
+    });
+  });
+
+  it('clicking a trace from the list calls getOverlay and applies overlay state', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    const { container } = render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('bash')).toBeInTheDocument();
+    });
+
+    // mockStrategyReport.strategies[0].members[0] === 'trace-1'
+    const traceBtn = await screen.findByRole('button', { name: /trace-1/ });
+    fireEvent.click(traceBtn);
+
+    await waitFor(() => {
+      expect(mockedGetOverlay).toHaveBeenCalledWith('bl-1', 'trace-1');
+    });
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-overlay-state="divergent"]'),
+      ).not.toBeNull();
     });
   });
 });

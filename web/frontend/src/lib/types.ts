@@ -92,3 +92,39 @@ export interface MatchResult {
   distance: number;
   max_intra_cluster_dist: number;
 }
+
+export interface GraphNode {
+  id: string;
+  tool_name: string;
+  count: number;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  count: number;
+  weight: number;
+}
+
+export interface GraphStats {
+  total_runs: number;
+  branch_points: number;
+}
+
+export interface PathGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: GraphStats;
+}
+
+export interface DivergencePoint {
+  node_id: string;
+  baseline_pct: number;
+  this_trace_chose: string;
+}
+
+export interface OverlayResult {
+  matched_node_ids: string[];
+  matched_edge_ids: string[];
+  divergence_points: DivergencePoint[];
+}

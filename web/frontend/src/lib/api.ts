@@ -5,6 +5,8 @@ import type {
   StrategyReport,
   DiffResponse,
   MatchResult,
+  PathGraph,
+  OverlayResult,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -86,4 +88,17 @@ export function compareTrace(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ trace_id: traceId }),
   });
+}
+
+export function getGraph(baselineId: string): Promise<PathGraph> {
+  return request<PathGraph>(`/api/baselines/${baselineId}/graph`);
+}
+
+export function getOverlay(
+  baselineId: string,
+  traceId: string,
+): Promise<OverlayResult> {
+  return request<OverlayResult>(
+    `/api/baselines/${baselineId}/overlay/${traceId}`,
+  );
 }

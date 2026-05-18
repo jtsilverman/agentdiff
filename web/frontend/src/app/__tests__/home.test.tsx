@@ -53,4 +53,36 @@ describe('HomePage', () => {
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/baselines/bl-1');
   });
+
+  it('renders a "Try these examples" demo row when seeded baselines are present', async () => {
+    mockedListBaselines.mockResolvedValue([
+      { id: 'seed-1', name: 'seed-prompt-regression', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-2', name: 'seed-tool-order-variance', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      mockBaseline,
+    ]);
+    render(<HomePage />);
+    await waitFor(() => {
+      expect(screen.getByText('Try these examples')).toBeInTheDocument();
+    });
+    // Per the rtl-assertions-gate-on-sut-unique-text pattern: gate on labels
+    // unique to the seed buttons (the human-readable scenario names) rather
+    // than on raw baseline names that also appear in the non-seed cards section.
+    expect(screen.getByRole('link', { name: /Prompt-change regression/i })).toHaveAttribute(
+      'href',
+      '/baselines/seed-1',
+    );
+    expect(screen.getByRole('link', { name: /Tool-order variance/i })).toHaveAttribute(
+      'href',
+      '/baselines/seed-2',
+    );
+  });
+
+  it('does not render the demo row when no seed-prefixed baselines exist', async () => {
+    mockedListBaselines.mockResolvedValue([mockBaseline]);
+    render(<HomePage />);
+    await waitFor(() => {
+      expect(screen.getByText('test-baseline')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Try these examples')).not.toBeInTheDocument();
+  });
 });

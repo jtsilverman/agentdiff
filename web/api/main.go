@@ -11,6 +11,7 @@ import (
 	"github.com/jtsilverman/agentdiff/web/api/db"
 	"github.com/jtsilverman/agentdiff/web/api/handlers"
 	"github.com/jtsilverman/agentdiff/web/api/middleware"
+	"github.com/jtsilverman/agentdiff/web/api/seed"
 )
 
 func main() {
@@ -23,6 +24,10 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 	defer database.Close()
+
+	if err := seed.Seed(database); err != nil {
+		log.Printf("warning: seed failed (continuing): %v", err)
+	}
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {

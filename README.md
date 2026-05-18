@@ -2,24 +2,39 @@
 
 **Agent observability for the CLI generation.** Snapshot agent runs, see the path they took, get AI-explained diffs across changes, catch silent regressions before they ship.
 
-> **Live demo: [agentdiff.vercel.app](https://agentdiff.vercel.app)**
-> Upload a trace or click any seeded example to see the path graph, AI triage, and plain-English transcript in under 30 seconds.
-
 AgentDiff started as a Go CLI (think `pytest` but for AI agents) and is now a three-surface platform:
 
-- **Web dashboard** ([live](https://agentdiff.vercel.app)) for visualizing agent behavior across runs.
+- **Web dashboard** for visualizing agent behavior across runs (run locally — see below; hosted demo coming soon).
 - **CLI** (`agentdiff record | diff | bench`) for local-first regression testing.
 - **GitHub Action** for catching regressions on every PR with a sticky comment.
 
 All three share the same trace format, baselines, and diffing engine.
 
+## Try the Web Dashboard Locally (60 seconds)
+
+The dashboard ships seeded with five canned scenarios so you can click around without uploading anything.
+
+```bash
+git clone https://github.com/jtsilverman/agentdiff
+cd agentdiff
+
+# Terminal 1: API + auto-seed
+cd web/api && go run . -port 8080
+
+# Terminal 2: frontend
+cd web/frontend && npm install && npm run dev
+# open http://localhost:3000
+```
+
+You'll land on a "Try these examples" row with the five seeded baselines (stable tool order, tool-order variance, prompt regression, novel-tool discovery, noise outlier). Click any baseline to see the path graph; click a trace in the panel to see overlay coloring and branch-confidence percentages.
+
+For the AI features (triage + transcripts), set `ANTHROPIC_API_KEY=sk-...` before starting the API. Without a key, the endpoints still respond (with deterministic fallback) so the rest of the dashboard works.
+
 ## Problem
 
 AI agents ship to production but there's no standard way to test whether a prompt, model, or config change caused a regression. Outputs are non-deterministic, so traditional assertion-based testing fails. AgentDiff captures the structural shape of agent behavior (which tools, in what order, branching where) and the textual shape (what the agent said) so you can compare runs the way you compare code: see the diff, explain the diff, decide if it's a regression.
 
-## Web Dashboard
-
-The dashboard lives at **[agentdiff.vercel.app](https://agentdiff.vercel.app)** and is the fastest way to see what AgentDiff does:
+## Web Dashboard Features
 
 - **Path graph** — interactive directed graph of tool-call sequences across all traces in a baseline, with branch-point confidence percentages and overlay coloring when you click a specific trace.
 - **AI triage** — `GET /api/diff/:idA/:idB/triage` sends two trace step-sequences to Claude with a structured prompt and returns `{summary, classification, likely_cause}` where classification is one of `regression | variance | additive`. Cached on a hash of the canonical step content so repeat asks return in <100ms with zero LLM cost.
@@ -28,7 +43,7 @@ The dashboard lives at **[agentdiff.vercel.app](https://agentdiff.vercel.app)** 
 - **Side-by-side text diff** — secondary tab on `/diff/:idA/:idB` for when you want the raw aligned step-by-step view.
 - **Drag-drop trace upload** — drop a `.jsonl` (Claude Code or OpenAI format) and it parses, persists, and is immediately diffable.
 
-The backend is a Go + Chi API talking to SQLite (WAL mode, foreign keys on). The frontend is Next.js 14 (App Router) + Tailwind + Tremor + React Flow + dagre. Deploys to Railway (API) + Vercel (frontend).
+The backend is a Go + Chi API talking to SQLite (WAL mode, foreign keys on). The frontend is Next.js 14 (App Router) + Tailwind + Tremor + React Flow + dagre. Hosted deploy (Railway + Vercel) is wired in `web/api/railway.json` + `web/frontend/next.config.js`; a hosted demo URL will land here once provisioning completes.
 
 ## CLI Quick Start
 

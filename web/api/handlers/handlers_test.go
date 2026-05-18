@@ -38,6 +38,8 @@ func setup(t *testing.T) (*httptest.Server, *db.DB) {
 		r.Get("/baselines/{id}/cluster", handlers.GetCluster(database))
 		r.Get("/diff/{idA}/{idB}", handlers.GetDiff(database))
 		r.Post("/baselines/{id}/compare", handlers.PostCompare(database))
+		r.Get("/baselines/{id}/graph", handlers.GetGraph(database))
+		r.Get("/baselines/{id}/overlay/{traceID}", handlers.GetOverlay(database))
 	})
 
 	ts := httptest.NewServer(r)

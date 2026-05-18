@@ -22,5 +22,9 @@ func RegisterRoutes(r chi.Router, database *db.DB) {
 		// Diff and compare endpoints
 		r.Get("/diff/{idA}/{idB}", handlers.GetDiff(database))
 		r.Post("/baselines/{id}/compare", handlers.PostCompare(database))
+
+		// Path graph endpoints
+		r.Get("/baselines/{id}/graph", handlers.GetGraph(database))
+		r.Get("/baselines/{id}/overlay/{traceID}", handlers.GetOverlay(database))
 	})
 }

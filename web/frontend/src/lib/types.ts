@@ -136,3 +136,8 @@ export interface TriageResponse {
   classification: TriageClassification;
   likely_cause: string;
 }
+
+export interface TranscriptResponse {
+  summary: string;
+  key_decisions: string[];
+}

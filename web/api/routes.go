@@ -7,12 +7,13 @@ import (
 )
 
 // RegisterRoutes wires all API handlers onto the router.
-func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager) {
+func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager, summarizer handlers.Summarizer) {
 	r.Route("/api", func(r chi.Router) {
 		// Trace endpoints
 		r.Post("/traces", handlers.PostTrace(database))
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
+		r.Get("/traces/{id}/transcript", handlers.GetTranscript(database, summarizer))
 
 		// Baseline endpoints
 		r.Post("/baselines", handlers.PostBaseline(database))

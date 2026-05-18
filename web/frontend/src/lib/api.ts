@@ -8,6 +8,7 @@ import type {
   PathGraph,
   OverlayResult,
   TriageResponse,
+  TranscriptResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -82,6 +83,10 @@ export function getDiff(idA: string, idB: string): Promise<DiffResponse> {
 
 export function getTriage(idA: string, idB: string): Promise<TriageResponse> {
   return request<TriageResponse>(`/api/diff/${idA}/${idB}/triage`);
+}
+
+export function getTranscript(traceId: string): Promise<TranscriptResponse> {
+  return request<TranscriptResponse>(`/api/traces/${traceId}/transcript`);
 }
 
 export function compareTrace(

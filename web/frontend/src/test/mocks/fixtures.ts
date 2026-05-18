@@ -7,6 +7,7 @@ import type {
   MatchResult,
   PathGraph,
   OverlayResult,
+  TranscriptResponse,
 } from '@/lib/types';
 
 export const mockTrace: TraceSummary = {
@@ -120,6 +121,15 @@ export const mockEmptyPathGraph: PathGraph = {
   nodes: [],
   edges: [],
   stats: { total_runs: 0, branch_points: 0 },
+};
+
+export const mockTranscript: TranscriptResponse = {
+  summary: 'Agent read the file, applied the rename, and confirmed the change in one turn.',
+  key_decisions: [
+    'used read_file before write_file',
+    'kept the original whitespace',
+    'reported the renamed path back to the user',
+  ],
 };
 
 export const mockOverlay: OverlayResult = {

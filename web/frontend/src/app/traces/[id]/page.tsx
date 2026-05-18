@@ -7,6 +7,7 @@ import { getTrace } from '@/lib/api';
 import type { TraceDetail } from '@/lib/types';
 import StepList from '@/components/StepList';
 import MetadataBadges from '@/components/MetadataBadges';
+import Transcript from '@/components/Transcript';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -64,6 +65,10 @@ export default function TraceDetailPage() {
         <Button onClick={handleCompare} size="sm" disabled={!diffId.trim()}>
           Compare
         </Button>
+      </div>
+
+      <div className="mb-6">
+        <Transcript traceId={trace.id} />
       </div>
 
       <StepList steps={trace.steps} />

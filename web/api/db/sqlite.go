@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS triage_cache (
     PRIMARY KEY (trace_a_id, trace_b_id, prompts_hash)
 );
 
+CREATE TABLE IF NOT EXISTS transcripts (
+    trace_id      TEXT NOT NULL REFERENCES traces(id) ON DELETE CASCADE,
+    prompts_hash  TEXT NOT NULL,
+    summary       TEXT NOT NULL,
+    key_decisions TEXT NOT NULL,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (trace_id, prompts_hash)
+);
+
 CREATE INDEX IF NOT EXISTS idx_snapshots_trace ON snapshots(trace_id, step_index);
 CREATE INDEX IF NOT EXISTS idx_baseline_traces_baseline ON baseline_traces(baseline_id);
 `

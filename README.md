@@ -37,6 +37,8 @@ AI agents ship to production but there's no standard way to test whether a promp
 ## Web Dashboard Features
 
 - **Path graph** — interactive directed graph of tool-call sequences across all traces in a baseline, with branch-point confidence percentages and overlay coloring when you click a specific trace.
+- **Counterfactual replay** — pick any step on a trace, edit its input, click "What if?". `POST /api/traces/:id/counterfactual` re-runs the agent from that step with the modified input and returns the new trace plus an `{original_path, new_path, divergence_step}` comparison. The frontend renders both paths overlaid on a fork-graph: shared prefix, then original vs counterfactual branches with the divergence step highlighted.
+- **Audit-to-test (Promote to baseline)** — `POST /api/traces/:id/promote` turns any one-off trace into a brand-new single-trace baseline in one click, so the next uploaded run gets diffed against it. The trace detail page surfaces a "Promote to baseline" button that defaults the name to `promoted-<trace-name>` and pushes you to the new baseline on success.
 - **AI triage** — `GET /api/diff/:idA/:idB/triage` sends two trace step-sequences to Claude with a structured prompt and returns `{summary, classification, likely_cause}` where classification is one of `regression | variance | additive`. Cached on a hash of the canonical step content so repeat asks return in <100ms with zero LLM cost.
 - **Annotated transcripts** — `GET /api/traces/:id/transcript` returns a one-paragraph plain-English summary of what the agent did, plus a short list of key decisions it made. Same caching shape as triage.
 - **Pre-seeded examples** — five canned scenarios (stable tool order, tool-order variance, prompt regression, novel-tool discovery, noisy outlier) so a stranger can click around and understand the product in 30 seconds.
@@ -138,7 +140,6 @@ Deterministic (same seed = same output), runs in under 2 seconds.
 
 ## Roadmap
 
-- Counterfactual replay (modify a mid-trace step, re-run, compare paths).
 - Inline prompt editing (rewrite any step's prompt, re-run from there).
 - Cost/latency heatmap on the path graph.
 - Replay scrubber with full-context-window display per step.
@@ -150,7 +151,7 @@ These are tracked in the active spec; PRs welcome.
 ## Architecture Notes
 
 - **CLI core** (`internal/`): trace parsing, snapshot model, Levenshtein + Jaccard diff, DBSCAN strategy clustering, bench harness. Pure Go, no network.
-- **Web API** (`web/api/`): Chi router, SQLite storage (WAL + FK on), handlers reuse the CLI's diff/cluster packages directly. LLM-backed endpoints (triage, transcript) use a DI seam (`Triager` / `Summarizer` interfaces) so unit tests inject fakes; production binds to an `Anthropic*` implementation that handles cached system prompts, tolerant JSON parsing, and deterministic fallback on any failure.
+- **Web API** (`web/api/`): Chi router, SQLite storage (WAL + FK on), handlers reuse the CLI's diff/cluster packages directly. LLM-backed endpoints (triage, transcript, counterfactual) use a DI seam (`Triager` / `Summarizer` / `Counterfactualer` interfaces) so unit tests inject fakes; production binds to an `Anthropic*` implementation that handles cached system prompts, tolerant JSON parsing, and deterministic fallback on any failure.
 - **Frontend** (`web/frontend/`): Next.js 14, Tailwind, Tremor for primitives, React Flow + dagre for the path graph, Vitest + RTL for tests. Zero runtime LLM calls from the browser.
 
 ## License

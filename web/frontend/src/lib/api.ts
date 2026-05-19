@@ -9,6 +9,7 @@ import type {
   OverlayResult,
   TriageResponse,
   TranscriptResponse,
+  PromoteResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -111,4 +112,16 @@ export function getOverlay(
   return request<OverlayResult>(
     `/api/baselines/${baselineId}/overlay/${traceId}`,
   );
+}
+
+export function promoteTrace(
+  traceId: string,
+  name?: string,
+): Promise<PromoteResponse> {
+  const body = name ? JSON.stringify({ name }) : undefined;
+  return request<PromoteResponse>(`/api/traces/${traceId}/promote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
 }

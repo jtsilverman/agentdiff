@@ -14,6 +14,7 @@ func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager, sum
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 		r.Get("/traces/{id}/transcript", handlers.GetTranscript(database, summarizer))
+		r.Post("/traces/{id}/promote", handlers.PromoteTrace(database))
 
 		// Baseline endpoints
 		r.Post("/baselines", handlers.PostBaseline(database))

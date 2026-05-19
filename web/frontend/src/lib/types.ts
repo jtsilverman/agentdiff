@@ -141,3 +141,8 @@ export interface TranscriptResponse {
   summary: string;
   key_decisions: string[];
 }
+
+export interface PromoteResponse {
+  baseline_id: string;
+  baseline_name: string;
+}

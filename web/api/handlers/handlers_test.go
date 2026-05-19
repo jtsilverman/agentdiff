@@ -33,6 +33,7 @@ func setup(t *testing.T) (*httptest.Server, *db.DB) {
 		r.Post("/traces", handlers.PostTrace(database))
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
+		r.Post("/traces/{id}/promote", handlers.PromoteTrace(database))
 		r.Post("/baselines", handlers.PostBaseline(database))
 		r.Get("/baselines", handlers.ListBaselines(database))
 		r.Get("/baselines/{id}/cluster", handlers.GetCluster(database))

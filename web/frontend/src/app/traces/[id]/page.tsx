@@ -8,6 +8,7 @@ import type { TraceDetail } from '@/lib/types';
 import StepList from '@/components/StepList';
 import MetadataBadges from '@/components/MetadataBadges';
 import Transcript from '@/components/Transcript';
+import PromoteButton from '@/components/PromoteButton';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -65,6 +66,11 @@ export default function TraceDetailPage() {
         <Button onClick={handleCompare} size="sm" disabled={!diffId.trim()}>
           Compare
         </Button>
+      </div>
+
+      {/* Promote-to-baseline */}
+      <div className="mb-6">
+        <PromoteButton traceId={trace.id} defaultName={`promoted-${trace.name}`} />
       </div>
 
       <div className="mb-6">

@@ -81,6 +81,19 @@ describe('TraceDetailPage', () => {
     expect(routerMock.push).toHaveBeenCalledWith('/diff/trace-1/other-trace');
   });
 
+  it('renders the Promote-to-baseline button', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-trace')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole('button', { name: /Promote to baseline/i }),
+    ).toBeInTheDocument();
+  });
+
   it('mounts Transcript above the step list with the loaded summary', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     mockedGetTranscript.mockResolvedValue(mockTranscript);

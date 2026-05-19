@@ -9,6 +9,7 @@ import {
   getDiff,
   getTriage,
   compareTrace,
+  runCounterfactual,
 } from '../api';
 
 function mockFetchResponse(data: unknown, ok = true, status = 200, statusText = 'OK') {
@@ -203,5 +204,28 @@ describe('error handling', () => {
     } as unknown as Response);
 
     await expect(listTraces()).rejects.toThrow('API error 500: Internal Server Error');
+  });
+});
+
+describe('runCounterfactual', () => {
+  it('POSTs /api/traces/:id/counterfactual with step_index + modified_input JSON body', async () => {
+    const fixture = {
+      new_trace_id: 'cf-trace-1',
+      comparison: {
+        original_path: ['user', 'read_file'],
+        new_path: ['user', 'bash'],
+        divergence_step: 1,
+      },
+    };
+    globalThis.fetch = mockFetchResponse(fixture);
+
+    const result = await runCounterfactual('trace-abc', 2, 'what if we used bash');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/traces/trace-abc/counterfactual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step_index: 2, modified_input: 'what if we used bash' }),
+    });
+    expect(result).toEqual(fixture);
   });
 });

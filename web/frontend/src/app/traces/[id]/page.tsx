@@ -9,6 +9,7 @@ import StepList from '@/components/StepList';
 import MetadataBadges from '@/components/MetadataBadges';
 import Transcript from '@/components/Transcript';
 import PromoteButton from '@/components/PromoteButton';
+import CounterfactualButton from '@/components/CounterfactualButton';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -75,6 +76,11 @@ export default function TraceDetailPage() {
 
       <div className="mb-6">
         <Transcript traceId={trace.id} />
+      </div>
+
+      {/* Counterfactual replay (What if?) */}
+      <div className="mb-6">
+        <CounterfactualButton traceId={trace.id} steps={trace.steps} />
       </div>
 
       <StepList steps={trace.steps} />

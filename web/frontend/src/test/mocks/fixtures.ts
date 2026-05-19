@@ -8,6 +8,7 @@ import type {
   PathGraph,
   OverlayResult,
   TranscriptResponse,
+  CounterfactualResponse,
 } from '@/lib/types';
 
 export const mockTrace: TraceSummary = {
@@ -138,4 +139,13 @@ export const mockOverlay: OverlayResult = {
   divergence_points: [
     { node_id: 'read_file', baseline_pct: 0.2, this_trace_chose: 'bash' },
   ],
+};
+
+export const mockCounterfactual: CounterfactualResponse = {
+  new_trace_id: 'cf-trace-1',
+  comparison: {
+    original_path: ['start', 'read_file', 'write_file'],
+    new_path: ['start', 'edit_file', 'bash'],
+    divergence_step: 1,
+  },
 };

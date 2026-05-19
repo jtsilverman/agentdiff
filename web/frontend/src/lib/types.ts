@@ -146,3 +146,14 @@ export interface PromoteResponse {
   baseline_id: string;
   baseline_name: string;
 }
+
+export interface CounterfactualComparison {
+  original_path: string[];
+  new_path: string[];
+  divergence_step: number;
+}
+
+export interface CounterfactualResponse {
+  new_trace_id: string;
+  comparison: CounterfactualComparison;
+}

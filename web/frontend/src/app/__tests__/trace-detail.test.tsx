@@ -94,6 +94,19 @@ describe('TraceDetailPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the What if? counterfactual button', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-trace')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole('button', { name: /What if\?/i }),
+    ).toBeInTheDocument();
+  });
+
   it('mounts Transcript above the step list with the loaded summary', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     mockedGetTranscript.mockResolvedValue(mockTranscript);

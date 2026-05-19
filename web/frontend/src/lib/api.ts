@@ -10,6 +10,7 @@ import type {
   TriageResponse,
   TranscriptResponse,
   PromoteResponse,
+  CounterfactualResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -124,4 +125,19 @@ export function promoteTrace(
     headers: { 'Content-Type': 'application/json' },
     body,
   });
+}
+
+export function runCounterfactual(
+  traceId: string,
+  stepIndex: number,
+  modifiedInput: string,
+): Promise<CounterfactualResponse> {
+  return request<CounterfactualResponse>(
+    `/api/traces/${traceId}/counterfactual`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step_index: stepIndex, modified_input: modifiedInput }),
+    },
+  );
 }

@@ -65,8 +65,18 @@ CREATE TABLE IF NOT EXISTS transcripts (
     PRIMARY KEY (trace_id, prompts_hash)
 );
 
+CREATE TABLE IF NOT EXISTS counterfactual_runs (
+    id                      TEXT PRIMARY KEY,
+    original_trace_id       TEXT NOT NULL REFERENCES traces(id) ON DELETE CASCADE,
+    counterfactual_trace_id TEXT NOT NULL REFERENCES traces(id) ON DELETE CASCADE,
+    step_index              INTEGER NOT NULL,
+    modified_input          TEXT NOT NULL,
+    created_at              DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_snapshots_trace ON snapshots(trace_id, step_index);
 CREATE INDEX IF NOT EXISTS idx_baseline_traces_baseline ON baseline_traces(baseline_id);
+CREATE INDEX IF NOT EXISTS idx_counterfactual_runs_original ON counterfactual_runs(original_trace_id);
 `
 
 // NewDB opens a SQLite database at path and runs schema migration.

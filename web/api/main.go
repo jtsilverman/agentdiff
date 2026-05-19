@@ -31,17 +31,18 @@ func main() {
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		log.Printf("warning: ANTHROPIC_API_KEY not set; triage and transcripts will return deterministic fallbacks")
+		log.Printf("warning: ANTHROPIC_API_KEY not set; triage, transcripts, and counterfactuals will return deterministic fallbacks")
 	}
 	model := os.Getenv("ANTHROPIC_MODEL")
 	triager := handlers.NewAnthropicTriager(apiKey, model)
 	summarizer := handlers.NewAnthropicSummarizer(apiKey, model)
+	counterfactualer := handlers.NewAnthropicCounterfactual(apiKey, model)
 
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Use(middleware.Logging)
 
-	RegisterRoutes(r, database, triager, summarizer)
+	RegisterRoutes(r, database, triager, summarizer, counterfactualer)
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("agentdiff-web listening on %s", addr)

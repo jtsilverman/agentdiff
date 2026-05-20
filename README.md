@@ -37,10 +37,14 @@ AI agents ship to production but there's no standard way to test whether a promp
 ## Web Dashboard Features
 
 - **Path graph** — interactive directed graph of tool-call sequences across all traces in a baseline, with branch-point confidence percentages and overlay coloring when you click a specific trace.
+- **Cost/latency heatmap** — toggle the path graph between overlay, cost, and latency modes. `GET /api/baselines/:id/graph` aggregates per-tool cost (tokens) and latency (ms) across baseline traces; nodes recolor on a hot-to-cold scale and surface the value inline. Old traces without usage metadata render gray, not error. Claude Code and OpenAI adapters parse usage out of stream-json / ChatCompletion responses.
+- **Replay scrubber** — drag a slider across any trace's step timeline; the side panel shows the role, full context window, tool call args, and tool result at each position. No backend changes; the frontend consumes the existing `GET /api/traces/:id` step list. Empty traces render an empty-state message instead of crashing.
 - **Counterfactual replay** — pick any step on a trace, edit its input, click "What if?". `POST /api/traces/:id/counterfactual` re-runs the agent from that step with the modified input and returns the new trace plus an `{original_path, new_path, divergence_step}` comparison. The frontend renders both paths overlaid on a fork-graph: shared prefix, then original vs counterfactual branches with the divergence step highlighted.
+- **Inline prompt editor** — sister feature to counterfactual replay: pick a step, rewrite its prompt, click "Re-run from here". `POST /api/traces/:id/edit-prompt` re-runs the agent with the rewritten prompt and returns the same fork-graph shape (shared prefix → original vs edited branches with the divergence step). Persists the link in `prompt_edit_runs` so you can trace prompt-change consequences after the fact.
 - **Audit-to-test (Promote to baseline)** — `POST /api/traces/:id/promote` turns any one-off trace into a brand-new single-trace baseline in one click, so the next uploaded run gets diffed against it. The trace detail page surfaces a "Promote to baseline" button that defaults the name to `promoted-<trace-name>` and pushes you to the new baseline on success.
 - **AI triage** — `GET /api/diff/:idA/:idB/triage` sends two trace step-sequences to Claude with a structured prompt and returns `{summary, classification, likely_cause}` where classification is one of `regression | variance | additive`. Cached on a hash of the canonical step content so repeat asks return in <100ms with zero LLM cost.
 - **Annotated transcripts** — `GET /api/traces/:id/transcript` returns a one-paragraph plain-English summary of what the agent did, plus a short list of key decisions it made. Same caching shape as triage.
+- **Similar traces (embeddings search)** — `GET /api/traces/:id/similar` returns the top-5 most semantically similar traces by cosine distance over Voyage AI embeddings (`voyage-3-lite`). Embeddings are generated in a background goroutine on trace insert (non-blocking, 30s timeout) and cached in a `trace_embeddings` table. Traces without embeddings are skipped naturally; an unembedded source returns an empty match list rather than 500.
 - **Pre-seeded examples** — five canned scenarios (stable tool order, tool-order variance, prompt regression, novel-tool discovery, noisy outlier) so a stranger can click around and understand the product in 30 seconds.
 - **Side-by-side text diff** — secondary tab on `/diff/:idA/:idB` for when you want the raw aligned step-by-step view.
 - **Drag-drop trace upload** — drop a `.jsonl` (Claude Code or OpenAI format) and it parses, persists, and is immediately diffable.
@@ -103,7 +107,7 @@ Add to your workflow to catch agent regressions on every PR:
     fail_on_style_drift: "false"  # fail on text-only regressions
 ```
 
-On pull requests, posts a sticky comment with the regression report. Exits 1 if regressions are detected.
+On pull requests, posts a sticky comment with the regression report and a rendered PNG of the baseline path graph with the divergence step annotated (red-outlined node + arrow). The PNG is rendered server-side in pure Go (no cgo, no Chrome), committed to an orphan `agentdiff-images` branch in the consumer's repo, and embedded in the comment via raw.githubusercontent. Exits 1 if regressions are detected.
 
 ## CI Usage (Manual)
 
@@ -140,18 +144,17 @@ Deterministic (same seed = same output), runs in under 2 seconds.
 
 ## Roadmap
 
-- Inline prompt editing (rewrite any step's prompt, re-run from there).
-- Cost/latency heatmap on the path graph.
-- Replay scrubber with full-context-window display per step.
-- Embeddings-based similar-trace search.
-- GitHub Action PR comments with rendered path-graph PNG.
+- Hosted demo at a public URL (Railway API + Vercel frontend, provisioning the deploy configs already in this repo).
+- Multi-model comparison (run the same prompt against Claude / GPT / Gemini, overlay all three on the path graph).
+- Authentication and multi-tenancy.
+- OpenTelemetry ingestion and live WebSocket streaming of in-progress runs.
 
-These are tracked in the active spec; PRs welcome.
+PRs welcome.
 
 ## Architecture Notes
 
 - **CLI core** (`internal/`): trace parsing, snapshot model, Levenshtein + Jaccard diff, DBSCAN strategy clustering, bench harness. Pure Go, no network.
-- **Web API** (`web/api/`): Chi router, SQLite storage (WAL + FK on), handlers reuse the CLI's diff/cluster packages directly. LLM-backed endpoints (triage, transcript, counterfactual) use a DI seam (`Triager` / `Summarizer` / `Counterfactualer` interfaces) so unit tests inject fakes; production binds to an `Anthropic*` implementation that handles cached system prompts, tolerant JSON parsing, and deterministic fallback on any failure.
+- **Web API** (`web/api/`): Chi router, SQLite storage (WAL + FK on), handlers reuse the CLI's diff/cluster packages directly. LLM-backed endpoints (triage, transcript, counterfactual, edit-prompt, embeddings) use a DI seam (`Triager` / `Summarizer` / `Counterfactualer` / `EditPrompter` / `Embedder` interfaces) so unit tests inject fakes; production binds to an `Anthropic*` implementation (or `Voyage*` for embeddings) that handles cached system prompts, tolerant JSON parsing, and deterministic fallback on any failure. New tables in the schema: `triage_cache`, `transcripts`, `counterfactual_runs`, `prompt_edit_runs`, `trace_embeddings`.
 - **Frontend** (`web/frontend/`): Next.js 14, Tailwind, Tremor for primitives, React Flow + dagre for the path graph, Vitest + RTL for tests. Zero runtime LLM calls from the browser.
 
 ## License

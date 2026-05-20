@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/jtsilverman/agentdiff/web/api/db"
-	"github.com/jtsilverman/agentdiff/web/api/internal/graph"
+	"github.com/jtsilverman/agentdiff/internal/graph"
 )
 
 // stepsByTrace pulls each baseline trace's step list, suitable for graph.Aggregate.

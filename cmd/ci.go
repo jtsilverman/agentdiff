@@ -10,6 +10,8 @@ import (
 
 	"github.com/jtsilverman/agentdiff/internal/config"
 	"github.com/jtsilverman/agentdiff/internal/diff"
+	"github.com/jtsilverman/agentdiff/internal/graph"
+	"github.com/jtsilverman/agentdiff/internal/render"
 	"github.com/jtsilverman/agentdiff/internal/report"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/spf13/cobra"
@@ -19,8 +21,9 @@ import (
 var ErrStyleDrift = fmt.Errorf("style drift detected")
 
 var (
-	ciOutputFile  string
+	ciOutputFile   string
 	ciBaselinePath string
+	ciPNGOut       string
 )
 
 var ciCmd = &cobra.Command{
@@ -35,7 +38,50 @@ runs diff comparisons, and outputs a markdown report. Exit codes:
 func init() {
 	ciCmd.Flags().StringVar(&ciOutputFile, "output", "", "write markdown report to file instead of stdout")
 	ciCmd.Flags().StringVar(&ciBaselinePath, "baseline", "", "override ci.baseline_path from config")
+	ciCmd.Flags().StringVar(&ciPNGOut, "png-out", "", "render path-graph PNG (with divergence overlay) to this file")
 	rootCmd.AddCommand(ciCmd)
+}
+
+// renderPathGraphPNG builds the path graph for one (baseline-snapshots, current-snapshot)
+// pair and rasterizes it. Returns nil bytes if either side has no steps; the caller
+// decides whether to write the file.
+func renderPathGraphPNG(baselineSnaps []snapshot.Snapshot, current snapshot.Snapshot) ([]byte, error) {
+	if len(baselineSnaps) == 0 || len(current.Steps) == 0 {
+		return nil, nil
+	}
+	traces := make([][]snapshot.Step, 0, len(baselineSnaps))
+	for _, s := range baselineSnaps {
+		if len(s.Steps) > 0 {
+			traces = append(traces, s.Steps)
+		}
+	}
+	if len(traces) == 0 {
+		return nil, nil
+	}
+
+	g := graph.Aggregate(traces)
+	o := graph.Overlay(g, current.Steps)
+
+	in := render.Input{
+		Nodes: make([]render.Node, 0, len(g.Nodes)),
+		Edges: make([]render.Edge, 0, len(g.Edges)),
+		Overlay: &render.Overlay{
+			MatchedNodes:    o.MatchedNodeIDs,
+			MatchedEdges:    o.MatchedEdgeIDs,
+			DivergenceNodes: make([]string, 0, len(o.DivergencePoints)),
+		},
+	}
+	for _, n := range g.Nodes {
+		in.Nodes = append(in.Nodes, render.Node{ID: n.ID, Label: n.ToolName})
+	}
+	for _, e := range g.Edges {
+		in.Edges = append(in.Edges, render.Edge{From: e.From, To: e.To, Weight: e.Weight})
+	}
+	for _, dp := range o.DivergencePoints {
+		in.Overlay.DivergenceNodes = append(in.Overlay.DivergenceNodes, dp.NodeID)
+	}
+
+	return render.PNG(in)
 }
 
 // loadBaselineFile reads a baseline directly from a gzipped JSON file path.
@@ -124,14 +170,47 @@ func runCI(cmd *cobra.Command, args []string) error {
 		return currentSnaps[i].Name < currentSnaps[j].Name
 	})
 
+	// Group all baseline snapshots by name for path-graph aggregation (chunk 21
+	// PNG render needs every baseline snapshot for a name, not just the latest).
+	baselineGroups := make(map[string][]snapshot.Snapshot)
+	for _, s := range baseline.Snapshots {
+		baselineGroups[s.Name] = append(baselineGroups[s.Name], s)
+	}
+
+	var pngTarget *snapshot.Snapshot // first matched current snapshot, used for PNG render
+
 	for _, current := range currentSnaps {
 		baseSnap, ok := baselineByName[current.Name]
 		if !ok {
 			fmt.Fprintf(os.Stderr, "warning: no baseline match for snapshot %q, skipping\n", current.Name)
 			continue
 		}
+		if pngTarget == nil {
+			c := current
+			pngTarget = &c
+		}
 		result := diff.Compare(baseSnap, current, cfg)
 		results = append(results, result)
+	}
+
+	// Render path-graph PNG if requested. Runs even when no regressions exist;
+	// the PNG shows baseline structure even on a pass, which is useful context
+	// for reviewers reading the sticky comment.
+	if ciPNGOut != "" && pngTarget != nil {
+		pngBytes, err := renderPathGraphPNG(baselineGroups[pngTarget.Name], *pngTarget)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: render PNG: %v\n", err)
+		} else if len(pngBytes) > 0 {
+			outPath := ciPNGOut
+			if !filepath.IsAbs(outPath) {
+				outPath = filepath.Join(cwd, outPath)
+			}
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: create PNG dir: %v\n", err)
+			} else if err := os.WriteFile(outPath, pngBytes, 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: write PNG: %v\n", err)
+			}
+		}
 	}
 
 	// Render markdown report (always, before any non-zero exit).

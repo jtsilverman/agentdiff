@@ -63,8 +63,62 @@ runs:
         if [ -n "${{ inputs.baseline_path }}" ]; then
           BASELINE_FLAG="--baseline ${{ inputs.baseline_path }}"
         fi
-        agentdiff ci --output agentdiff-report.md $BASELINE_FLAG
+        agentdiff ci --output agentdiff-report.md --png-out agentdiff-graph.png $BASELINE_FLAG
         echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    # On a PR, push the rendered PNG to the `agentdiff-images` orphan branch so
+    # the sticky comment can embed it via raw.githubusercontent.com. Requires the
+    # consuming workflow to grant `permissions: contents: write`.
+    - name: Publish path-graph PNG to orphan branch
+      id: publish_png
+      if: github.event_name == 'pull_request' && hashFiles('agentdiff-graph.png') != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -e
+        REPO="${{ github.repository }}"
+        SHA="${{ github.event.pull_request.head.sha }}"
+        RUN_ID="${{ github.run_id }}"
+        FILENAME="${SHA}-${RUN_ID}.png"
+
+        # Stash PNG + report outside the worktree so the branch switch can't lose them.
+        TMP=$(mktemp -d)
+        cp agentdiff-graph.png "$TMP/$FILENAME"
+        cp agentdiff-report.md "$TMP/agentdiff-report.md"
+
+        ORIG_REF=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$ORIG_REF" = "HEAD" ]; then
+          ORIG_REF=$(git rev-parse HEAD)
+        fi
+
+        git config user.email "actions@github.com"
+        git config user.name "agentdiff-ci"
+
+        if git fetch origin agentdiff-images 2>/dev/null && git rev-parse --verify origin/agentdiff-images >/dev/null 2>&1; then
+          git checkout -B agentdiff-images origin/agentdiff-images
+        else
+          git checkout --orphan agentdiff-images
+          git rm -rf . >/dev/null 2>&1 || true
+        fi
+
+        cp "$TMP/$FILENAME" "$FILENAME"
+        git add "$FILENAME"
+        git commit -m "agentdiff: image for PR ${SHA} run ${RUN_ID}"
+        git push origin agentdiff-images
+
+        # Return to the PR head so subsequent steps see the original tree + restore the report.
+        git checkout "$ORIG_REF"
+        cp "$TMP/agentdiff-report.md" agentdiff-report.md
+
+        RAW_URL="https://raw.githubusercontent.com/${REPO}/agentdiff-images/${FILENAME}"
+        echo "graph_url=${RAW_URL}" >> $GITHUB_OUTPUT
+
+    - name: Append PNG to report
+      if: github.event_name == 'pull_request' && steps.publish_png.outputs.graph_url != ''
+      shell: bash
+      run: |
+        printf '\n\n## Path graph\n\n![Path graph](%s)\n' "${{ steps.publish_png.outputs.graph_url }}" >> agentdiff-report.md
 
     - name: Post PR comment
       if: github.event_name == 'pull_request'

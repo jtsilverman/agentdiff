@@ -1,6 +1,8 @@
 package cmd_test
 
 import (
+	"bytes"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -326,5 +328,50 @@ func TestCILatestBaselineSnapshot(t *testing.T) {
 
 	if exitCode != 0 {
 		t.Fatalf("expected exit 0 (latest baseline matches), got %d\nstdout: %s", exitCode, stdout)
+	}
+}
+
+// TestCIWritesPNG asserts that the new --png-out flag writes a valid PNG of the
+// path graph. The PNG embeds in the GitHub Action sticky PR comment (chunk 21).
+// Asserts on file existence + decodability + non-zero dimensions; the SVG/PNG
+// rendering correctness lives in the render package's own tests.
+func TestCIWritesPNG(t *testing.T) {
+	baseSnap := snapshot.Snapshot{
+		Name:      "agent-test",
+		Timestamp: time.Now().Add(-time.Hour),
+		Steps:     identicalSteps(),
+	}
+	currentSnap := snapshot.Snapshot{
+		Name:      "agent-test",
+		Timestamp: time.Now(),
+		Steps:     differentToolSteps(),
+	}
+
+	workDir := setupCIWorkDir(t, []snapshot.Snapshot{baseSnap}, []snapshot.Snapshot{currentSnap},
+		makeBaselineConfig(".agentdiff/baselines/main.json.gz"))
+
+	pngPath := filepath.Join(workDir, "graph.png")
+	_, _, exitCode := runAgentDiff(t, workDir, "ci", "--png-out", pngPath)
+
+	// Regression case: exit 1 expected, but PNG must still be written.
+	if exitCode != 1 {
+		t.Fatalf("expected exit 1 (regression), got %d", exitCode)
+	}
+
+	pngBytes, err := os.ReadFile(pngPath)
+	if err != nil {
+		t.Fatalf("expected PNG file at %s: %v", pngPath, err)
+	}
+	if len(pngBytes) == 0 {
+		t.Fatalf("PNG file is empty")
+	}
+
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("PNG decode failed: %v", err)
+	}
+	b := img.Bounds()
+	if b.Dx() <= 0 || b.Dy() <= 0 {
+		t.Fatalf("PNG has non-positive dimensions: %dx%d", b.Dx(), b.Dy())
 	}
 }

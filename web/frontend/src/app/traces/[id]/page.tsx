@@ -10,6 +10,7 @@ import MetadataBadges from '@/components/MetadataBadges';
 import Transcript from '@/components/Transcript';
 import PromoteButton from '@/components/PromoteButton';
 import CounterfactualButton from '@/components/CounterfactualButton';
+import Scrubber from '@/components/Scrubber';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -76,6 +77,11 @@ export default function TraceDetailPage() {
 
       <div className="mb-6">
         <Transcript traceId={trace.id} />
+      </div>
+
+      {/* Replay scrubber (drag to inspect what the model saw at each step) */}
+      <div className="mb-6">
+        <Scrubber steps={trace.steps} />
       </div>
 
       {/* Counterfactual replay (What if?) */}

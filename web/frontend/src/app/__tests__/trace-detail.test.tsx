@@ -48,8 +48,8 @@ describe('TraceDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('test-trace')).toBeInTheDocument();
     });
-    // StepList renders steps with role labels and content
-    expect(screen.getByText('Hello')).toBeInTheDocument();
+    // StepList and Scrubber both render step content; assert at least one match exists.
+    expect(screen.getAllByText('Hello').length).toBeGreaterThanOrEqual(1);
   });
 
   it('"Compare" button is disabled when diff input is empty', async () => {
@@ -107,6 +107,20 @@ describe('TraceDetailPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('mounts the replay Scrubber with a step scrubber slider and the "Step 1 of N" label', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-trace')).toBeInTheDocument();
+    });
+
+    // Scrubber-unique gates: aria-label="step scrubber" and "Step N of M" text
+    // are not emitted by StepList, Transcript, PromoteButton, or CounterfactualButton.
+    expect(screen.getByRole('slider', { name: /step scrubber/i })).toBeInTheDocument();
+    expect(screen.getByText(/Step 1 of 3/i)).toBeInTheDocument();
+  });
+
   it('mounts Transcript above the step list with the loaded summary', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     mockedGetTranscript.mockResolvedValue(mockTranscript);
@@ -117,8 +131,11 @@ describe('TraceDetailPage', () => {
     });
 
     const summaryEl = screen.getByText(mockTranscript.summary);
-    const firstStepEl = screen.getByText('Hello');
-    expect(summaryEl.compareDocumentPosition(firstStepEl)).toBe(
+    // Both Scrubber and StepList render "Hello"; the LAST occurrence is StepList's
+    // (mounted after Scrubber in JSX). Assert Transcript is above the step list.
+    const helloEls = screen.getAllByText('Hello');
+    const lastStepEl = helloEls[helloEls.length - 1];
+    expect(summaryEl.compareDocumentPosition(lastStepEl)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(mockedGetTranscript).toHaveBeenCalledWith('trace-1');

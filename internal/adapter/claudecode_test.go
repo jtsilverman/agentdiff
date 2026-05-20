@@ -121,6 +121,90 @@ func TestClaudeCodeAdapterSkipsUnknownTypes(t *testing.T) {
 	}
 }
 
+func TestClaudeCodeAdapterParseCostAndLatency(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/claudecode_with_usage.jsonl")
+	if err != nil {
+		t.Fatalf("failed to read testdata: %v", err)
+	}
+
+	adapter := &ClaudeCodeAdapter{}
+	steps, _, err := adapter.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	// Fixture: 3 assistant lines (text, tool_use, text) + 1 tool_result = 4 steps.
+	if got := len(steps); got != 4 {
+		t.Fatalf("expected 4 steps, got %d", got)
+	}
+
+	// Step 0: assistant text, usage.input=520 + output=12 = cost 532, duration_ms=840.
+	if steps[0].Role != "assistant" {
+		t.Fatalf("step 0: expected role 'assistant', got %q", steps[0].Role)
+	}
+	if steps[0].CostTokens == nil {
+		t.Fatalf("step 0: expected CostTokens to be populated, got nil")
+	}
+	if *steps[0].CostTokens != 532 {
+		t.Errorf("step 0: expected CostTokens=532 (input 520 + output 12), got %d", *steps[0].CostTokens)
+	}
+	if steps[0].LatencyMs == nil {
+		t.Fatalf("step 0: expected LatencyMs to be populated, got nil")
+	}
+	if *steps[0].LatencyMs != 840 {
+		t.Errorf("step 0: expected LatencyMs=840, got %d", *steps[0].LatencyMs)
+	}
+
+	// Step 1: tool_call, usage.input=540 + output=48 = cost 588, duration_ms=1320.
+	if steps[1].Role != "tool_call" {
+		t.Fatalf("step 1: expected role 'tool_call', got %q", steps[1].Role)
+	}
+	if steps[1].CostTokens == nil || *steps[1].CostTokens != 588 {
+		t.Errorf("step 1: expected CostTokens=588, got %v", steps[1].CostTokens)
+	}
+	if steps[1].LatencyMs == nil || *steps[1].LatencyMs != 1320 {
+		t.Errorf("step 1: expected LatencyMs=1320, got %v", steps[1].LatencyMs)
+	}
+
+	// Step 2: tool_result — no usage block on user lines, should be nil.
+	if steps[2].Role != "tool_result" {
+		t.Fatalf("step 2: expected role 'tool_result', got %q", steps[2].Role)
+	}
+	if steps[2].CostTokens != nil {
+		t.Errorf("step 2: expected CostTokens=nil for tool_result, got %v", *steps[2].CostTokens)
+	}
+	if steps[2].LatencyMs != nil {
+		t.Errorf("step 2: expected LatencyMs=nil for tool_result, got %v", *steps[2].LatencyMs)
+	}
+
+	// Step 3: trailing assistant text.
+	if steps[3].CostTokens == nil || *steps[3].CostTokens != 616 {
+		t.Errorf("step 3: expected CostTokens=616 (input 612 + output 4), got %v", steps[3].CostTokens)
+	}
+}
+
+func TestClaudeCodeAdapterMissingUsageStaysNil(t *testing.T) {
+	// Old-format trace without usage blocks: CostTokens/LatencyMs must stay nil
+	// so backward-compat with pre-chunk-18 traces is preserved.
+	data, err := os.ReadFile("../../testdata/claudecode_stream.jsonl")
+	if err != nil {
+		t.Fatalf("failed to read testdata: %v", err)
+	}
+	adapter := &ClaudeCodeAdapter{}
+	steps, _, err := adapter.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+	for i, s := range steps {
+		if s.CostTokens != nil {
+			t.Errorf("step %d: expected CostTokens=nil for legacy fixture, got %d", i, *s.CostTokens)
+		}
+		if s.LatencyMs != nil {
+			t.Errorf("step %d: expected LatencyMs=nil for legacy fixture, got %d", i, *s.LatencyMs)
+		}
+	}
+}
+
 func TestClaudeCodeAdapterUnknownToolID(t *testing.T) {
 	input := []byte(`{"type":"user","session_id":"s1","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_unknown","content":"some output","is_error":false}]}}
 `)

@@ -22,9 +22,22 @@ type claudeCodeLine struct {
 
 // claudeCodeMessage represents the message object within a stream-json line.
 type claudeCodeMessage struct {
-	Model   string          `json:"model,omitempty"`
-	Role    string          `json:"role"`
-	Content json.RawMessage `json:"content"`
+	Model      string           `json:"model,omitempty"`
+	Role       string           `json:"role"`
+	Content    json.RawMessage  `json:"content"`
+	Usage      *claudeCodeUsage `json:"usage,omitempty"`
+	DurationMs *int             `json:"duration_ms,omitempty"`
+}
+
+// claudeCodeUsage captures per-turn token accounting from stream-json.
+// Cost for the turn = InputTokens + OutputTokens (the billable surface the API
+// reports for that single message generation). Cache-read tokens are tracked
+// separately by Anthropic but are not added to CostTokens — they bill at a
+// different rate and would over-credit cached prefixes if summed in.
+type claudeCodeUsage struct {
+	InputTokens          int `json:"input_tokens"`
+	OutputTokens         int `json:"output_tokens"`
+	CacheReadInputTokens int `json:"cache_read_input_tokens,omitempty"`
 }
 
 // claudeCodeToolResultBlock represents a tool_result block within user message content.
@@ -80,6 +93,15 @@ func (c *ClaudeCodeAdapter) Parse(input []byte) ([]snapshot.Step, map[string]str
 			if msg.Model != "" {
 				meta["model"] = msg.Model
 			}
+			var costPtr, latencyPtr *int
+			if msg.Usage != nil {
+				cost := msg.Usage.InputTokens + msg.Usage.OutputTokens
+				costPtr = &cost
+			}
+			if msg.DurationMs != nil {
+				latency := *msg.DurationMs
+				latencyPtr = &latency
+			}
 			// Reuse parseContentBlocks from claude.go (same package).
 			blocks, err := parseContentBlocks(msg.Content)
 			if err != nil {
@@ -89,8 +111,10 @@ func (c *ClaudeCodeAdapter) Parse(input []byte) ([]snapshot.Step, map[string]str
 				switch b.Type {
 				case "text":
 					steps = append(steps, snapshot.Step{
-						Role:    "assistant",
-						Content: b.Text,
+						Role:       "assistant",
+						Content:    b.Text,
+						CostTokens: costPtr,
+						LatencyMs:  latencyPtr,
 					})
 				case "tool_use":
 					toolNames[b.ID] = b.Name
@@ -100,6 +124,8 @@ func (c *ClaudeCodeAdapter) Parse(input []byte) ([]snapshot.Step, map[string]str
 							Name: b.Name,
 							Args: b.Input,
 						},
+						CostTokens: costPtr,
+						LatencyMs:  latencyPtr,
 					})
 				}
 			}

@@ -33,8 +33,18 @@ type openaiToolFunction struct {
 
 // openaiAPIResponse represents an OpenAI API response wrapper.
 type openaiAPIResponse struct {
-	Model   string              `json:"model,omitempty"`
-	Choices []openaiChoice      `json:"choices"`
+	Model   string         `json:"model,omitempty"`
+	Choices []openaiChoice `json:"choices"`
+	Usage   *openaiUsage   `json:"usage,omitempty"`
+}
+
+// openaiUsage captures the per-call token accounting from a ChatCompletion
+// response. Cost for the call = PromptTokens + CompletionTokens (the billable
+// surface; OpenAI bills input + output at different rates but both bill).
+type openaiUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
 }
 
 // openaiChoice represents one choice in an API response.
@@ -49,13 +59,22 @@ type openaiChoice struct {
 func (o *OpenAIAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string, error) {
 	meta := map[string]string{}
 
-	messages, err := o.extractMessages(input, meta)
+	messages, usage, err := o.extractMessages(input, meta)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Track tool call IDs to names for tool results.
 	toolNames := map[string]string{}
+
+	// Wrapper-level usage applies to the assistant messages extracted from a
+	// single ChatCompletion response. Attach to each assistant-originated step;
+	// in the typical 1-choice response this is exactly one assistant turn.
+	var wrapperCost *int
+	if usage != nil {
+		cost := usage.PromptTokens + usage.CompletionTokens
+		wrapperCost = &cost
+	}
 
 	var steps []snapshot.Step
 	for i, msg := range messages {
@@ -74,8 +93,9 @@ func (o *OpenAIAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string,
 			// Capture text content first (present even when tool_calls exist).
 			if msg.Content != "" {
 				steps = append(steps, snapshot.Step{
-					Role:    "assistant",
-					Content: msg.Content,
+					Role:       "assistant",
+					Content:    msg.Content,
+					CostTokens: wrapperCost,
 				})
 			}
 			for _, tc := range msg.ToolCalls {
@@ -90,6 +110,7 @@ func (o *OpenAIAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string,
 						Name: tc.Function.Name,
 						Args: args,
 					},
+					CostTokens: wrapperCost,
 				})
 			}
 
@@ -111,12 +132,13 @@ func (o *OpenAIAdapter) Parse(input []byte) ([]snapshot.Step, map[string]string,
 	return steps, meta, nil
 }
 
-// extractMessages determines the input format and returns messages + metadata.
-func (o *OpenAIAdapter) extractMessages(input []byte, meta map[string]string) ([]openaiMessage, error) {
+// extractMessages determines the input format and returns messages, the
+// wrapper-level usage (nil for direct-array inputs), and metadata.
+func (o *OpenAIAdapter) extractMessages(input []byte, meta map[string]string) ([]openaiMessage, *openaiUsage, error) {
 	// Try direct array first.
 	var messages []openaiMessage
 	if err := json.Unmarshal(input, &messages); err == nil {
-		return messages, nil
+		return messages, nil, nil
 	}
 
 	// Try API response wrapper.
@@ -129,10 +151,10 @@ func (o *OpenAIAdapter) extractMessages(input []byte, meta map[string]string) ([
 		for _, c := range resp.Choices {
 			msgs = append(msgs, c.Message)
 		}
-		return msgs, nil
+		return msgs, resp.Usage, nil
 	}
 
-	return nil, fmt.Errorf("unrecognized OpenAI format: expected JSON array or {\"choices\":[...]} object")
+	return nil, nil, fmt.Errorf("unrecognized OpenAI format: expected JSON array or {\"choices\":[...]} object")
 }
 
 // parseToolArgs parses a JSON arguments string into a map.

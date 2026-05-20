@@ -5,6 +5,40 @@ import (
 	"testing"
 )
 
+func TestOpenAIParseChatCompletionUsage(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/openai_with_usage.json")
+	if err != nil {
+		t.Fatalf("failed to read testdata: %v", err)
+	}
+	adapter := &OpenAIAdapter{}
+	steps, meta, err := adapter.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	if meta["model"] != "gpt-4o-2024-08-06" {
+		t.Errorf("expected model from wrapper, got %q", meta["model"])
+	}
+	// Wrapper has 1 choice with 1 assistant message that has a single tool_call.
+	// extractMessages flattens to 1 message, role-dispatcher emits 1 tool_call step.
+	if got := len(steps); got != 1 {
+		t.Fatalf("expected 1 step from single-choice wrapper, got %d", got)
+	}
+	if steps[0].Role != "tool_call" {
+		t.Fatalf("expected role 'tool_call', got %q", steps[0].Role)
+	}
+	if steps[0].CostTokens == nil {
+		t.Fatalf("expected CostTokens populated from wrapper.usage, got nil")
+	}
+	// usage.prompt_tokens=142 + completion_tokens=18 = 160.
+	if *steps[0].CostTokens != 160 {
+		t.Errorf("expected CostTokens=160 (prompt 142 + completion 18), got %d", *steps[0].CostTokens)
+	}
+	// OpenAI ChatCompletion response has no per-message latency field; expect nil.
+	if steps[0].LatencyMs != nil {
+		t.Errorf("expected LatencyMs=nil (no latency in ChatCompletion shape), got %d", *steps[0].LatencyMs)
+	}
+}
+
 func TestOpenAIParseTestdata(t *testing.T) {
 	data, err := os.ReadFile("../../testdata/openai_trace.json")
 	if err != nil {

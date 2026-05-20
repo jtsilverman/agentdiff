@@ -13,11 +13,19 @@ type Snapshot struct {
 }
 
 // Step represents one turn in the agent conversation.
+//
+// CostTokens and LatencyMs are optional per-step observability fields populated
+// by adapters when the source format exposes them (Claude Code stream-json
+// message.usage / duration_ms; OpenAI ChatCompletion usage). Legacy traces
+// without these fields keep them nil so backward compatibility is preserved
+// across older stored snapshots.
 type Step struct {
 	Role       string      `json:"role"`
 	Content    string      `json:"content"`
 	ToolCall   *ToolCall   `json:"tool_call,omitempty"`
 	ToolResult *ToolResult `json:"tool_result,omitempty"`
+	CostTokens *int        `json:"cost_tokens,omitempty"`
+	LatencyMs  *int        `json:"latency_ms,omitempty"`
 }
 
 // ToolCall represents a tool invocation by the agent.

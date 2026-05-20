@@ -15,7 +15,7 @@ import type {
   PathGraph as PathGraphData,
   OverlayResult,
 } from '@/lib/types';
-import PathGraph from '@/components/PathGraph';
+import PathGraph, { type PathGraphMode } from '@/components/PathGraph';
 import StrategyCluster from '@/components/StrategyCluster';
 import DriftBadge from '@/components/DriftBadge';
 import TriagePanel from '@/components/TriagePanel';
@@ -37,6 +37,8 @@ export default function BaselineDetailPage() {
   const [comparing, setComparing] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [compareError, setCompareError] = useState<string | null>(null);
+
+  const [graphMode, setGraphMode] = useState<PathGraphMode>('overlay');
 
   useEffect(() => {
     Promise.all([
@@ -100,8 +102,36 @@ export default function BaselineDetailPage() {
           {graph.stats.total_runs} runs, {graph.stats.branch_points} branch points.
           {selectedTraceId && ` Overlay: ${selectedTraceId}.`}
         </Text>
+        <div className="mt-3 flex gap-2">
+          {(
+            [
+              { value: 'overlay', label: 'Overlay' },
+              { value: 'heatmap-cost', label: 'Heatmap: cost' },
+              { value: 'heatmap-latency', label: 'Heatmap: latency' },
+            ] as const
+          ).map((opt) => {
+            const active = graphMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setGraphMode(opt.value)}
+                className={`rounded px-3 py-1 text-xs transition-colors ${
+                  active
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-100 hover:bg-gray-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
         <div className="mt-4">
-          <PathGraph graph={graph} overlay={overlay ?? undefined} />
+          <PathGraph
+            graph={graph}
+            overlay={graphMode === 'overlay' ? overlay ?? undefined : undefined}
+            mode={graphMode}
+          />
         </div>
         {overlayError && (
           <Text color="red" className="mt-2">

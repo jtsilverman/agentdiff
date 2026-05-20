@@ -107,9 +107,9 @@ export const mockDriftResult: MatchResult = {
 
 export const mockPathGraph: PathGraph = {
   nodes: [
-    { id: 'read_file', tool_name: 'read_file', count: 5 },
-    { id: 'write_file', tool_name: 'write_file', count: 4 },
-    { id: 'bash', tool_name: 'bash', count: 1 },
+    { id: 'read_file', tool_name: 'read_file', count: 5, cost_tokens: 2500, latency_ms: 5000 },
+    { id: 'write_file', tool_name: 'write_file', count: 4, cost_tokens: 800, latency_ms: 1200 },
+    { id: 'bash', tool_name: 'bash', count: 1, cost_tokens: 9000, latency_ms: 11000 },
   ],
   edges: [
     { from: 'read_file', to: 'write_file', count: 4, weight: 0.8 },
@@ -122,6 +122,15 @@ export const mockEmptyPathGraph: PathGraph = {
   nodes: [],
   edges: [],
   stats: { total_runs: 0, branch_points: 0 },
+};
+
+export const mockPathGraphNoCost: PathGraph = {
+  nodes: [
+    { id: 'legacy_tool', tool_name: 'legacy_tool', count: 3 },
+    { id: 'another', tool_name: 'another', count: 2 },
+  ],
+  edges: [{ from: 'legacy_tool', to: 'another', count: 2, weight: 1.0 }],
+  stats: { total_runs: 3, branch_points: 0 },
 };
 
 export const mockTranscript: TranscriptResponse = {

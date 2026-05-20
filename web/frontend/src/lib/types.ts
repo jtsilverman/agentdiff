@@ -97,6 +97,8 @@ export interface GraphNode {
   id: string;
   tool_name: string;
   count: number;
+  cost_tokens?: number;
+  latency_ms?: number;
 }
 
 export interface GraphEdge {

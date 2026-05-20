@@ -133,6 +133,67 @@ func TestPostAndGetTrace(t *testing.T) {
 	}
 }
 
+func TestGetTraceIncludesCostAndLatency(t *testing.T) {
+	ts, _ := setup(t)
+	usageData := readTestData(t, "claudecode_with_usage.jsonl")
+
+	posted := postTrace(t, ts, "with-usage", usageData)
+	id := posted["id"].(string)
+
+	resp, err := http.Get(fmt.Sprintf("%s/api/traces/%s", ts.URL, id))
+	if err != nil {
+		t.Fatalf("GET /api/traces/%s: %v", id, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var detail struct {
+		Steps []map[string]interface{} `json:"steps"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		t.Fatalf("decode detail: %v", err)
+	}
+	if len(detail.Steps) == 0 {
+		t.Fatalf("expected non-empty steps")
+	}
+
+	// Each assistant-derived step in the fixture (steps 0, 1, 3) must carry
+	// cost_tokens. The tool_result step (index 2) must NOT carry it.
+	assistantCostFound := 0
+	for i, s := range detail.Steps {
+		role, _ := s["role"].(string)
+		_, hasCost := s["cost_tokens"]
+		_, hasLatency := s["latency_ms"]
+		if role == "assistant" || role == "tool_call" {
+			if !hasCost {
+				t.Errorf("step %d (role=%s): expected cost_tokens in JSON response", i, role)
+			}
+			if !hasLatency {
+				t.Errorf("step %d (role=%s): expected latency_ms in JSON response", i, role)
+			}
+			assistantCostFound++
+		}
+		if role == "tool_result" && (hasCost || hasLatency) {
+			t.Errorf("step %d (role=tool_result): expected no cost_tokens/latency_ms", i)
+		}
+	}
+	if assistantCostFound == 0 {
+		t.Fatalf("no assistant/tool_call steps found to verify")
+	}
+
+	// Spot-check one specific value: step 0 (assistant text) has cost 532.
+	step0 := detail.Steps[0]
+	cost0, ok := step0["cost_tokens"].(float64)
+	if !ok {
+		t.Fatalf("step 0 cost_tokens missing or wrong type: %v", step0["cost_tokens"])
+	}
+	if int(cost0) != 532 {
+		t.Errorf("step 0 cost_tokens: want 532, got %d", int(cost0))
+	}
+}
+
 func TestListTraces(t *testing.T) {
 	ts, _ := setup(t)
 	claudeData := readTestData(t, "claude_trace.jsonl")

@@ -47,6 +47,8 @@ type stepResponse struct {
 	Content    string              `json:"content"`
 	ToolCall   *toolCallResponse   `json:"tool_call,omitempty"`
 	ToolResult *toolResultResponse `json:"tool_result,omitempty"`
+	CostTokens *int                `json:"cost_tokens,omitempty"`
+	LatencyMs  *int                `json:"latency_ms,omitempty"`
 }
 
 // toolCallResponse is the JSON representation of a tool call.
@@ -222,8 +224,10 @@ func GetTrace(database *db.DB) http.HandlerFunc {
 		steps := make([]stepResponse, len(trace.Steps))
 		for i, s := range trace.Steps {
 			sr := stepResponse{
-				Role:    s.Role,
-				Content: s.Content,
+				Role:       s.Role,
+				Content:    s.Content,
+				CostTokens: s.CostTokens,
+				LatencyMs:  s.LatencyMs,
 			}
 			if s.ToolCall != nil {
 				sr.ToolCall = &toolCallResponse{

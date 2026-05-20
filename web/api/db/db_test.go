@@ -1,12 +1,43 @@
 package db
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 )
+
+// sqlOpenLegacy opens a raw SQLite connection without running the schema
+// migration — used to seed pre-chunk-18 fixtures the migration must upgrade.
+func sqlOpenLegacy(path string) (*sql.DB, error) {
+	return sql.Open("sqlite3", path)
+}
+
+// snapshotColumnsViaPragma reads the snapshots table column set from PRAGMA
+// table_info, the same query the migration uses internally.
+func snapshotColumnsViaPragma(t *testing.T, db *DB) map[string]bool {
+	t.Helper()
+	rows, err := db.conn.Query("PRAGMA table_info(snapshots)")
+	if err != nil {
+		t.Fatalf("PRAGMA table_info: %v", err)
+	}
+	defer rows.Close()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan column: %v", err)
+		}
+		cols[name] = true
+	}
+	return cols
+}
 
 // testDB creates a temporary SQLite database and returns it with a cleanup function.
 func testDB(t *testing.T) *DB {
@@ -235,6 +266,124 @@ func TestInsertSnapshots_Empty(t *testing.T) {
 	td, _ := db.GetTrace(tr.ID)
 	if len(td.Steps) != 0 {
 		t.Errorf("expected 0 steps, got %d", len(td.Steps))
+	}
+}
+
+func TestInsertSnapshots_RoundTripsCostAndLatency(t *testing.T) {
+	db := testDB(t)
+
+	tr, _ := db.CreateTrace("cost-trace", "claudecode", nil)
+	cost1, lat1 := 532, 840
+	cost2 := 588
+	steps := []snapshot.Step{
+		{Role: "assistant", Content: "thinking", CostTokens: &cost1, LatencyMs: &lat1},
+		{
+			Role: "tool_call",
+			ToolCall: &snapshot.ToolCall{Name: "Read", Args: map[string]interface{}{"path": "x"}},
+			// LatencyMs left nil — exercises mixed-nullability persistence.
+			CostTokens: &cost2,
+		},
+		// Old-style step with no cost/latency.
+		{Role: "assistant", Content: "done"},
+	}
+	if err := db.InsertSnapshots(tr.ID, steps); err != nil {
+		t.Fatalf("InsertSnapshots: %v", err)
+	}
+
+	td, err := db.GetTrace(tr.ID)
+	if err != nil {
+		t.Fatalf("GetTrace: %v", err)
+	}
+	if len(td.Steps) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(td.Steps))
+	}
+	if td.Steps[0].CostTokens == nil || *td.Steps[0].CostTokens != 532 {
+		t.Errorf("step 0: CostTokens want 532, got %v", td.Steps[0].CostTokens)
+	}
+	if td.Steps[0].LatencyMs == nil || *td.Steps[0].LatencyMs != 840 {
+		t.Errorf("step 0: LatencyMs want 840, got %v", td.Steps[0].LatencyMs)
+	}
+	if td.Steps[1].CostTokens == nil || *td.Steps[1].CostTokens != 588 {
+		t.Errorf("step 1: CostTokens want 588, got %v", td.Steps[1].CostTokens)
+	}
+	if td.Steps[1].LatencyMs != nil {
+		t.Errorf("step 1: LatencyMs want nil, got %d", *td.Steps[1].LatencyMs)
+	}
+	if td.Steps[2].CostTokens != nil {
+		t.Errorf("step 2: CostTokens want nil (legacy step), got %d", *td.Steps[2].CostTokens)
+	}
+}
+
+func TestNewDB_MigratesExistingDBWithoutCostLatencyColumns(t *testing.T) {
+	// Simulate a pre-chunk-18 DB by writing the old schema to a file, opening
+	// it via NewDB (which must run the additive migration), then verifying both
+	// columns exist and that legacy rows roundtrip with NULL cost/latency.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "legacy.db")
+
+	preChunk18Schema := `
+CREATE TABLE traces (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    adapter     TEXT NOT NULL,
+    source      TEXT NOT NULL DEFAULT '',
+    metadata    TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE snapshots (
+    id          TEXT PRIMARY KEY,
+    trace_id    TEXT NOT NULL REFERENCES traces(id),
+    step_index  INTEGER NOT NULL,
+    role        TEXT NOT NULL,
+    content     TEXT,
+    tool_name   TEXT,
+    tool_args   TEXT,
+    tool_output TEXT,
+    tool_is_error INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO traces (id, name, adapter) VALUES ('legacy-trace', 'old', 'claude');
+INSERT INTO snapshots (id, trace_id, step_index, role, content)
+    VALUES ('s1', 'legacy-trace', 0, 'user', 'hi');
+`
+	// Open with raw sqlite3 driver, apply the legacy schema, close.
+	rawDB, err := sqlOpenLegacy(path)
+	if err != nil {
+		t.Fatalf("open legacy: %v", err)
+	}
+	if _, err := rawDB.Exec(preChunk18Schema); err != nil {
+		rawDB.Close()
+		t.Fatalf("exec legacy schema: %v", err)
+	}
+	rawDB.Close()
+
+	// Now open via NewDB — migration must add cost_tokens + latency_ms.
+	db, err := NewDB(path)
+	if err != nil {
+		t.Fatalf("NewDB on legacy file: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	cols := snapshotColumnsViaPragma(t, db)
+	if !cols["cost_tokens"] {
+		t.Errorf("migration: cost_tokens column not added")
+	}
+	if !cols["latency_ms"] {
+		t.Errorf("migration: latency_ms column not added")
+	}
+
+	// Existing rows must read back with nil cost/latency, not crash.
+	td, err := db.GetTrace("legacy-trace")
+	if err != nil {
+		t.Fatalf("GetTrace legacy: %v", err)
+	}
+	if len(td.Steps) != 1 {
+		t.Fatalf("expected 1 legacy step, got %d", len(td.Steps))
+	}
+	if td.Steps[0].CostTokens != nil {
+		t.Errorf("legacy step CostTokens want nil, got %d", *td.Steps[0].CostTokens)
+	}
+	if td.Steps[0].LatencyMs != nil {
+		t.Errorf("legacy step LatencyMs want nil, got %d", *td.Steps[0].LatencyMs)
 	}
 }
 

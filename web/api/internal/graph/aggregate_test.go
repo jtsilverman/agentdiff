@@ -35,6 +35,65 @@ func findEdge(g PathGraph, from, to string) (Edge, bool) {
 	return Edge{}, false
 }
 
+func TestAggregate_PerNodeCostAndLatencySums(t *testing.T) {
+	// Two traces. Trace 1: Read(cost=100, lat=200) → Write(cost=50, lat=80).
+	// Trace 2: Read(cost=120, lat=210) → Read(cost=140) [no latency].
+	// Expected aggregates: Read cost=360, lat=410; Write cost=50, lat=80.
+	mkStep := func(name string, cost, lat *int) snapshot.Step {
+		return snapshot.Step{
+			Role:       "tool_call",
+			ToolCall:   &snapshot.ToolCall{Name: name, Args: map[string]interface{}{}},
+			CostTokens: cost,
+			LatencyMs:  lat,
+		}
+	}
+	ip := func(v int) *int { return &v }
+
+	traces := [][]snapshot.Step{
+		{mkStep("Read", ip(100), ip(200)), mkStep("Write", ip(50), ip(80))},
+		{mkStep("Read", ip(120), ip(210)), mkStep("Read", ip(140), nil)},
+	}
+	g := Aggregate(traces)
+
+	read, ok := findNode(g, "Read")
+	if !ok {
+		t.Fatalf("Read node missing")
+	}
+	if read.CostTokens == nil || *read.CostTokens != 360 {
+		t.Errorf("Read CostTokens: want 360, got %v", read.CostTokens)
+	}
+	if read.LatencyMs == nil || *read.LatencyMs != 410 {
+		t.Errorf("Read LatencyMs: want 410 (200+210, nil skipped), got %v", read.LatencyMs)
+	}
+
+	write, ok := findNode(g, "Write")
+	if !ok {
+		t.Fatalf("Write node missing")
+	}
+	if write.CostTokens == nil || *write.CostTokens != 50 {
+		t.Errorf("Write CostTokens: want 50, got %v", write.CostTokens)
+	}
+	if write.LatencyMs == nil || *write.LatencyMs != 80 {
+		t.Errorf("Write LatencyMs: want 80, got %v", write.LatencyMs)
+	}
+}
+
+func TestAggregate_NodeWithNoCostStaysNil(t *testing.T) {
+	// All-nil cost/latency in legacy traces — node carries nil, not 0.
+	traces := [][]snapshot.Step{toolCallSteps("legacy")}
+	g := Aggregate(traces)
+	n, ok := findNode(g, "legacy")
+	if !ok {
+		t.Fatalf("legacy node missing")
+	}
+	if n.CostTokens != nil {
+		t.Errorf("expected nil CostTokens on legacy node, got %d", *n.CostTokens)
+	}
+	if n.LatencyMs != nil {
+		t.Errorf("expected nil LatencyMs on legacy node, got %d", *n.LatencyMs)
+	}
+}
+
 func TestAggregate_SingleTrace(t *testing.T) {
 	traces := [][]snapshot.Step{
 		toolCallSteps("search", "filter", "summarize"),

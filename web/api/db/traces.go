@@ -127,7 +127,7 @@ func (db *DB) GetTrace(id string) (TraceDetail, error) {
 	}
 
 	rows, err := db.conn.Query(`
-		SELECT role, content, tool_name, tool_args, tool_output, tool_is_error
+		SELECT role, content, tool_name, tool_args, tool_output, tool_is_error, cost_tokens, latency_ms
 		FROM snapshots
 		WHERE trace_id = ?
 		ORDER BY step_index ASC
@@ -156,15 +156,25 @@ func scanStep(rows *sql.Rows) (snapshot.Step, error) {
 		toolArgs    sql.NullString
 		toolOutput  sql.NullString
 		toolIsError int
+		costTokens  sql.NullInt64
+		latencyMs   sql.NullInt64
 	)
 
-	if err := rows.Scan(&role, &content, &toolName, &toolArgs, &toolOutput, &toolIsError); err != nil {
+	if err := rows.Scan(&role, &content, &toolName, &toolArgs, &toolOutput, &toolIsError, &costTokens, &latencyMs); err != nil {
 		return snapshot.Step{}, fmt.Errorf("scan step: %w", err)
 	}
 
 	step := snapshot.Step{
 		Role:    role,
 		Content: content.String,
+	}
+	if costTokens.Valid {
+		v := int(costTokens.Int64)
+		step.CostTokens = &v
+	}
+	if latencyMs.Valid {
+		v := int(latencyMs.Int64)
+		step.LatencyMs = &v
 	}
 
 	// Rebuild ToolCall if tool_args is present (indicates a tool call step).

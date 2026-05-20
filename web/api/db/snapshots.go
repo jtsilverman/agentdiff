@@ -18,8 +18,8 @@ func (db *DB) InsertSnapshots(traceID string, steps []snapshot.Step) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO snapshots (id, trace_id, step_index, role, content, tool_name, tool_args, tool_output, tool_is_error)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO snapshots (id, trace_id, step_index, role, content, tool_name, tool_args, tool_output, tool_is_error, cost_tokens, latency_ms)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
@@ -64,6 +64,8 @@ func (db *DB) InsertSnapshots(traceID string, steps []snapshot.Step) error {
 			toolArgs,
 			toolOutput,
 			toolIsError,
+			step.CostTokens,
+			step.LatencyMs,
 		)
 		if err != nil {
 			return fmt.Errorf("insert step %d: %w", i, err)

@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS snapshots (
     tool_name   TEXT,
     tool_args   TEXT,
     tool_output TEXT,
-    tool_is_error INTEGER NOT NULL DEFAULT 0
+    tool_is_error INTEGER NOT NULL DEFAULT 0,
+    cost_tokens INTEGER,
+    latency_ms  INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS baselines (
@@ -89,7 +91,44 @@ func NewDB(path string) (*DB, error) {
 		conn.Close()
 		return nil, err
 	}
+	// Additive nullable-column migrations for DBs created before the column
+	// existed in the CREATE TABLE schema. PRAGMA table_info is used over
+	// ALTER TABLE ADD COLUMN IF NOT EXISTS so we don't depend on SQLite 3.35+,
+	// and over try/catch on constraint errors which would mask real failures.
+	if err := migrateAddColumn(conn, "snapshots", "cost_tokens", "INTEGER"); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if err := migrateAddColumn(conn, "snapshots", "latency_ms", "INTEGER"); err != nil {
+		conn.Close()
+		return nil, err
+	}
 	return &DB{conn: conn}, nil
+}
+
+// migrateAddColumn adds a nullable column to an existing table if PRAGMA
+// table_info shows it is missing. No-op when the column already exists, so
+// it is safe to call on every NewDB.
+func migrateAddColumn(conn *sql.DB, table, column, sqlType string) error {
+	rows, err := conn.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == column {
+			return nil
+		}
+	}
+	_, err = conn.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + sqlType)
+	return err
 }
 
 // Close closes the database connection.

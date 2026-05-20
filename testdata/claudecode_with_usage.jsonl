@@ -1,0 +1,6 @@
+{"type": "system", "subtype": "init", "session_id": "sess_usage_001", "tools": ["Read", "Bash"], "model": "claude-opus-4-7"}
+{"type": "assistant", "session_id": "sess_usage_001", "message": {"role": "assistant", "model": "claude-opus-4-7", "content": [{"type": "text", "text": "Let me read main.go."}], "usage": {"input_tokens": 520, "output_tokens": 12, "cache_read_input_tokens": 1000}, "duration_ms": 840}}
+{"type": "assistant", "session_id": "sess_usage_001", "message": {"role": "assistant", "model": "claude-opus-4-7", "content": [{"type": "tool_use", "id": "toolu_a", "name": "Read", "input": {"file_path": "main.go"}}], "usage": {"input_tokens": 540, "output_tokens": 48}, "duration_ms": 1320}}
+{"type": "user", "session_id": "sess_usage_001", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_a", "content": "package main\n", "is_error": false}]}}
+{"type": "assistant", "session_id": "sess_usage_001", "message": {"role": "assistant", "model": "claude-opus-4-7", "content": [{"type": "text", "text": "Done."}], "usage": {"input_tokens": 612, "output_tokens": 4}, "duration_ms": 410}}
+{"type": "result", "session_id": "sess_usage_001", "subtype": "success", "duration_ms": 2570, "cost_usd": 0.012}

@@ -120,6 +120,24 @@ describe('BaselineDetailPage', () => {
     });
   });
 
+  it('renders a heatmap-mode toggle and applies heatmap buckets when Cost is selected', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    const { container } = render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('bash')).toBeInTheDocument();
+    });
+
+    const costBtn = screen.getByRole('button', { name: /heatmap.*cost/i });
+    fireEvent.click(costBtn);
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-heatmap-bucket="hot"]'),
+      ).not.toBeNull();
+    });
+  });
+
   it('clicking a trace from the list calls getOverlay and applies overlay state', async () => {
     mockedGetCluster.mockResolvedValue(mockStrategyReport);
     const { container } = render(<BaselineDetailPage />);

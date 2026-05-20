@@ -12,10 +12,17 @@ import (
 )
 
 // Node represents one tool call in the aggregate path graph.
+//
+// CostTokens / LatencyMs are summed across every step that invoked this tool
+// in the baseline's traces, ignoring steps whose adapter did not surface the
+// underlying field. They stay nil when no step contributed any value, so the
+// frontend heatmap can distinguish "unknown" from "zero."
 type Node struct {
-	ID       string `json:"id"`
-	ToolName string `json:"tool_name"`
-	Count    int    `json:"count"`
+	ID         string `json:"id"`
+	ToolName   string `json:"tool_name"`
+	Count      int    `json:"count"`
+	CostTokens *int   `json:"cost_tokens,omitempty"`
+	LatencyMs  *int   `json:"latency_ms,omitempty"`
 }
 
 // Edge represents a directed transition between two tool calls.
@@ -50,6 +57,13 @@ func Aggregate(traces [][]snapshot.Step) PathGraph {
 	nodeCounts := make(map[string]int)
 	edgeCounts := make(map[string]map[string]int) // from -> to -> count
 
+	// Per-tool sums. Tracked via *int so a tool with all-nil contributions
+	// stays nil (distinguishable from a zero-cost tool).
+	costSums := make(map[string]int)
+	costSeen := make(map[string]bool)
+	latencySums := make(map[string]int)
+	latencySeen := make(map[string]bool)
+
 	for _, steps := range traces {
 		names := diff.ExtractToolNames(steps)
 		for i, name := range names {
@@ -62,11 +76,37 @@ func Aggregate(traces [][]snapshot.Step) PathGraph {
 				edgeCounts[prev][name]++
 			}
 		}
+		// Walk steps again to accumulate per-tool cost/latency. We don't use
+		// ExtractToolNames here because we need the original Step structs to
+		// reach CostTokens / LatencyMs; tool_call steps carry the values.
+		for _, s := range steps {
+			if s.ToolCall == nil {
+				continue
+			}
+			tool := s.ToolCall.Name
+			if s.CostTokens != nil {
+				costSums[tool] += *s.CostTokens
+				costSeen[tool] = true
+			}
+			if s.LatencyMs != nil {
+				latencySums[tool] += *s.LatencyMs
+				latencySeen[tool] = true
+			}
+		}
 	}
 
 	nodes := make([]Node, 0, len(nodeCounts))
 	for id, count := range nodeCounts {
-		nodes = append(nodes, Node{ID: id, ToolName: id, Count: count})
+		n := Node{ID: id, ToolName: id, Count: count}
+		if costSeen[id] {
+			v := costSums[id]
+			n.CostTokens = &v
+		}
+		if latencySeen[id] {
+			v := latencySums[id]
+			n.LatencyMs = &v
+		}
+		nodes = append(nodes, n)
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
 

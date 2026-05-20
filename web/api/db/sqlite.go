@@ -76,9 +76,19 @@ CREATE TABLE IF NOT EXISTS counterfactual_runs (
     created_at              DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS prompt_edit_runs (
+    id                TEXT PRIMARY KEY,
+    original_trace_id TEXT NOT NULL REFERENCES traces(id) ON DELETE CASCADE,
+    edited_trace_id   TEXT NOT NULL REFERENCES traces(id) ON DELETE CASCADE,
+    step_index        INTEGER NOT NULL,
+    modified_prompt   TEXT NOT NULL,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_snapshots_trace ON snapshots(trace_id, step_index);
 CREATE INDEX IF NOT EXISTS idx_baseline_traces_baseline ON baseline_traces(baseline_id);
 CREATE INDEX IF NOT EXISTS idx_counterfactual_runs_original ON counterfactual_runs(original_trace_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_edit_runs_original ON prompt_edit_runs(original_trace_id);
 `
 
 // NewDB opens a SQLite database at path and runs schema migration.

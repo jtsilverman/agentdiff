@@ -159,3 +159,10 @@ export interface CounterfactualResponse {
   new_trace_id: string;
   comparison: CounterfactualComparison;
 }
+
+// EditPromptResponse mirrors CounterfactualResponse's shape so the frontend can
+// reuse CounterfactualGraph for the two-path render.
+export interface EditPromptResponse {
+  new_trace_id: string;
+  comparison: CounterfactualComparison;
+}

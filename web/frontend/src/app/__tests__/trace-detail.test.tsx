@@ -107,6 +107,21 @@ describe('TraceDetailPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the Edit prompt button (inline prompt editor)', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-trace')).toBeInTheDocument();
+    });
+
+    // EditPromptButton's collapsed default. "Edit prompt" is SUT-unique on this
+    // page; no other sibling component renders it.
+    expect(
+      screen.getByRole('button', { name: /Edit prompt/i }),
+    ).toBeInTheDocument();
+  });
+
   it('mounts the replay Scrubber with a step scrubber slider and the "Step 1 of N" label', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);

@@ -11,6 +11,7 @@ import type {
   TranscriptResponse,
   PromoteResponse,
   CounterfactualResponse,
+  EditPromptResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -138,6 +139,21 @@ export function runCounterfactual(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ step_index: stepIndex, modified_input: modifiedInput }),
+    },
+  );
+}
+
+export function editPrompt(
+  traceId: string,
+  stepIndex: number,
+  modifiedPrompt: string,
+): Promise<EditPromptResponse> {
+  return request<EditPromptResponse>(
+    `/api/traces/${traceId}/edit-prompt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step_index: stepIndex, modified_prompt: modifiedPrompt }),
     },
   );
 }

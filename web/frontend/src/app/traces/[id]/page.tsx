@@ -10,6 +10,7 @@ import MetadataBadges from '@/components/MetadataBadges';
 import Transcript from '@/components/Transcript';
 import PromoteButton from '@/components/PromoteButton';
 import CounterfactualButton from '@/components/CounterfactualButton';
+import EditPromptButton from '@/components/EditPromptButton';
 import Scrubber from '@/components/Scrubber';
 
 export default function TraceDetailPage() {
@@ -87,6 +88,11 @@ export default function TraceDetailPage() {
       {/* Counterfactual replay (What if?) */}
       <div className="mb-6">
         <CounterfactualButton traceId={trace.id} steps={trace.steps} />
+      </div>
+
+      {/* Inline prompt editor (re-run with a rewritten prompt at a chosen step) */}
+      <div className="mb-6">
+        <EditPromptButton traceId={trace.id} steps={trace.steps} />
       </div>
 
       <StepList steps={trace.steps} />

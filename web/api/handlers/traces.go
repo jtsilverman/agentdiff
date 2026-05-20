@@ -1,14 +1,18 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/internal/adapter"
+	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/jtsilverman/agentdiff/web/api/db"
 )
 
@@ -92,7 +96,7 @@ func adapterSourceName(a adapter.Adapter) string {
 }
 
 // PostTrace handles POST /api/traces.
-func PostTrace(database *db.DB) http.HandlerFunc {
+func PostTrace(database *db.DB, embedder Embedder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("name")
 		if name == "" {
@@ -169,6 +173,13 @@ func PostTrace(database *db.DB) http.HandlerFunc {
 			return
 		}
 
+		// Best-effort, non-blocking embedding generation. Nil embedder = off
+		// (tests pass nil, see no embedding writes). Failures log and skip;
+		// /similar returns empty matches for traces without an embedding row.
+		if embedder != nil {
+			go generateEmbeddingAsync(embedder, database, trace.ID, trace.Name, steps)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(traceResponse{
@@ -177,6 +188,26 @@ func PostTrace(database *db.DB) http.HandlerFunc {
 			Adapter:   trace.Adapter,
 			StepCount: len(steps),
 		})
+	}
+}
+
+// generateEmbeddingAsync runs the embedder off the request-handling path so a
+// slow or failing Voyage call never blocks trace upload. Independent timeout
+// keeps the goroutine from outliving its usefulness.
+func generateEmbeddingAsync(embedder Embedder, database *db.DB, traceID, traceName string, steps []snapshot.Step) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	result, err := embedder.Embed(ctx, EmbedRequest{
+		TraceID:   traceID,
+		TraceName: traceName,
+		Steps:     steps,
+	})
+	if err != nil {
+		log.Printf("embedding generation failed for trace %s: %v", traceID, err)
+		return
+	}
+	if err := database.InsertEmbedding(traceID, result.Vector, result.ModelName); err != nil {
+		log.Printf("embedding persistence failed for trace %s: %v", traceID, err)
 	}
 }
 

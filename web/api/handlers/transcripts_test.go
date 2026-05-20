@@ -39,7 +39,7 @@ func setupWithSummarizer(t *testing.T, summarizer handlers.Summarizer) (*httptes
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/traces", handlers.PostTrace(database))
+		r.Post("/traces", handlers.PostTrace(database, nil))
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 		r.Get("/traces/{id}/transcript", handlers.GetTranscript(database, summarizer))

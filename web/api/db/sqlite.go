@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS prompt_edit_runs (
     created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS trace_embeddings (
+    trace_id     TEXT PRIMARY KEY REFERENCES traces(id) ON DELETE CASCADE,
+    vector_json  TEXT NOT NULL,
+    model_name   TEXT NOT NULL,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_snapshots_trace ON snapshots(trace_id, step_index);
 CREATE INDEX IF NOT EXISTS idx_baseline_traces_baseline ON baseline_traces(baseline_id);
 CREATE INDEX IF NOT EXISTS idx_counterfactual_runs_original ON counterfactual_runs(original_trace_id);

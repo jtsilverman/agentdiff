@@ -10,6 +10,7 @@ import {
   getTriage,
   compareTrace,
   runCounterfactual,
+  getSimilar,
 } from '../api';
 
 function mockFetchResponse(data: unknown, ok = true, status = 200, statusText = 'OK') {
@@ -204,6 +205,23 @@ describe('error handling', () => {
     } as unknown as Response);
 
     await expect(listTraces()).rejects.toThrow('API error 500: Internal Server Error');
+  });
+});
+
+describe('getSimilar', () => {
+  it('GETs /api/traces/:id/similar and returns the matches envelope', async () => {
+    const fixture = {
+      matches: [
+        { trace_id: 'sim-1', name: 'similar-trace-1', similarity_score: 0.91 },
+        { trace_id: 'sim-2', name: 'similar-trace-2', similarity_score: 0.77 },
+      ],
+    };
+    globalThis.fetch = mockFetchResponse(fixture);
+
+    const result = await getSimilar('source-trace');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/traces/source-trace/similar', undefined);
+    expect(result).toEqual(fixture);
   });
 });
 

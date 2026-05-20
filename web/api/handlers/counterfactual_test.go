@@ -42,7 +42,7 @@ func setupWithCounterfactualer(t *testing.T, cf handlers.Counterfactualer) (*htt
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/traces", handlers.PostTrace(database))
+		r.Post("/traces", handlers.PostTrace(database, nil))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 		r.Post("/traces/{id}/counterfactual", handlers.PostCounterfactual(database, cf))
 	})

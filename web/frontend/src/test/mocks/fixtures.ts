@@ -9,6 +9,7 @@ import type {
   OverlayResult,
   TranscriptResponse,
   CounterfactualResponse,
+  SimilarTracesResponse,
 } from '@/lib/types';
 
 export const mockTrace: TraceSummary = {
@@ -157,4 +158,18 @@ export const mockCounterfactual: CounterfactualResponse = {
     new_path: ['start', 'edit_file', 'bash'],
     divergence_step: 1,
   },
+};
+
+export const mockSimilarTraces: SimilarTracesResponse = {
+  matches: [
+    { trace_id: 'sim-1', name: 'grep-then-cat', similarity_score: 0.92 },
+    { trace_id: 'sim-2', name: 'grep-then-head', similarity_score: 0.84 },
+    { trace_id: 'sim-3', name: 'find-then-cat', similarity_score: 0.71 },
+    { trace_id: 'sim-4', name: 'ls-then-cat', similarity_score: 0.58 },
+    { trace_id: 'sim-5', name: 'echo-then-write', similarity_score: 0.33 },
+  ],
+};
+
+export const mockEmptySimilarTraces: SimilarTracesResponse = {
+  matches: [],
 };

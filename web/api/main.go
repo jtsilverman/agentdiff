@@ -39,11 +39,23 @@ func main() {
 	counterfactualer := handlers.NewAnthropicCounterfactual(apiKey, model)
 	editPrompter := handlers.NewAnthropicEditPrompt(apiKey, model)
 
+	voyageKey := os.Getenv("VOYAGE_API_KEY")
+	if voyageKey == "" {
+		log.Printf("warning: VOYAGE_API_KEY not set; trace embeddings will not be generated and /similar will return empty matches")
+	}
+	// NewVoyageEmbedder returns nil when the key is empty. Wrap as the
+	// Embedder interface explicitly to avoid Go's typed-nil-interface gotcha
+	// inside PostTrace's `embedder != nil` guard.
+	var embedder handlers.Embedder
+	if v := handlers.NewVoyageEmbedder(voyageKey, os.Getenv("VOYAGE_MODEL")); v != nil {
+		embedder = v
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Use(middleware.Logging)
 
-	RegisterRoutes(r, database, triager, summarizer, counterfactualer, editPrompter)
+	RegisterRoutes(r, database, triager, summarizer, counterfactualer, editPrompter, embedder)
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("agentdiff-web listening on %s", addr)

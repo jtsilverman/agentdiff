@@ -12,6 +12,7 @@ import type {
   PromoteResponse,
   CounterfactualResponse,
   EditPromptResponse,
+  SimilarTracesResponse,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -156,4 +157,8 @@ export function editPrompt(
       body: JSON.stringify({ step_index: stepIndex, modified_prompt: modifiedPrompt }),
     },
   );
+}
+
+export function getSimilar(traceId: string): Promise<SimilarTracesResponse> {
+  return request<SimilarTracesResponse>(`/api/traces/${traceId}/similar`);
 }

@@ -39,7 +39,7 @@ func setupWithTriager(t *testing.T, triager handlers.Triager) (*httptest.Server,
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/traces", handlers.PostTrace(database))
+		r.Post("/traces", handlers.PostTrace(database, nil))
 		r.Get("/traces", handlers.ListTraces(database))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 		r.Post("/baselines", handlers.PostBaseline(database))

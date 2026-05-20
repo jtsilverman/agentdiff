@@ -12,6 +12,7 @@ import PromoteButton from '@/components/PromoteButton';
 import CounterfactualButton from '@/components/CounterfactualButton';
 import EditPromptButton from '@/components/EditPromptButton';
 import Scrubber from '@/components/Scrubber';
+import SimilarTraces from '@/components/SimilarTraces';
 
 export default function TraceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -93,6 +94,11 @@ export default function TraceDetailPage() {
       {/* Inline prompt editor (re-run with a rewritten prompt at a chosen step) */}
       <div className="mb-6">
         <EditPromptButton traceId={trace.id} steps={trace.steps} />
+      </div>
+
+      {/* Similar traces panel (cross-trace embedding similarity, chunk 22) */}
+      <div className="mb-6">
+        <SimilarTraces traceId={trace.id} />
       </div>
 
       <StepList steps={trace.steps} />

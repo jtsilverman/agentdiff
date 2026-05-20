@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { mockUseParams, mockUseRouter } from '@/test/mocks/next-navigation';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { mockTraceDetail, mockTranscript } from '@/test/mocks/fixtures';
+import { mockTraceDetail, mockTranscript, mockEmptySimilarTraces } from '@/test/mocks/fixtures';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => (
@@ -11,11 +11,12 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/api');
 
-import { getTrace, getTranscript } from '@/lib/api';
+import { getTrace, getTranscript, getSimilar } from '@/lib/api';
 import TraceDetailPage from '../traces/[id]/page';
 
 const mockedGetTrace = vi.mocked(getTrace);
 const mockedGetTranscript = vi.mocked(getTranscript);
+const mockedGetSimilar = vi.mocked(getSimilar);
 
 describe('TraceDetailPage', () => {
   const routerMock = { push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() };
@@ -27,6 +28,9 @@ describe('TraceDetailPage', () => {
     // Default: transcript hangs so it stays in "Summarizing" state and doesn't
     // overwhelm the existing assertions. Individual tests override as needed.
     mockedGetTranscript.mockReturnValue(new Promise(() => {}));
+    // SimilarTraces auto-fetches on mount; default to empty so its presence
+    // doesn't trip on undefined return. Per vi-mock-auto-stubs-undefined pattern.
+    mockedGetSimilar.mockResolvedValue(mockEmptySimilarTraces);
   });
 
   it('shows loading state, then trace name, adapter badge, step count', async () => {
@@ -134,6 +138,20 @@ describe('TraceDetailPage', () => {
     // are not emitted by StepList, Transcript, PromoteButton, or CounterfactualButton.
     expect(screen.getByRole('slider', { name: /step scrubber/i })).toBeInTheDocument();
     expect(screen.getByText(/Step 1 of 3/i)).toBeInTheDocument();
+  });
+
+  it('mounts the SimilarTraces panel with the "Similar traces" title (SUT-unique anchor)', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-trace')).toBeInTheDocument();
+    });
+    // SUT-unique gate: "Similar traces" panel title is rendered only by the
+    // SimilarTraces component; no sibling on this page emits it.
+    expect(await screen.findByText(/Similar traces/i)).toBeInTheDocument();
+    // Sanity: getSimilar called with the route's trace id (from useParams).
+    expect(mockedGetSimilar).toHaveBeenCalledWith('trace-1');
   });
 
   it('mounts Transcript above the step list with the loaded summary', async () => {

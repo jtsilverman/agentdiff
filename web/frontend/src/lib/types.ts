@@ -166,3 +166,13 @@ export interface EditPromptResponse {
   new_trace_id: string;
   comparison: CounterfactualComparison;
 }
+
+export interface SimilarTrace {
+  trace_id: string;
+  name: string;
+  similarity_score: number;
+}
+
+export interface SimilarTracesResponse {
+  matches: SimilarTrace[];
+}

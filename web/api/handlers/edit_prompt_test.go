@@ -41,7 +41,7 @@ func setupWithEditPrompter(t *testing.T, ep handlers.EditPrompter) (*httptest.Se
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/traces", handlers.PostTrace(database))
+		r.Post("/traces", handlers.PostTrace(database, nil))
 		r.Get("/traces/{id}", handlers.GetTrace(database))
 		r.Post("/traces/{id}/edit-prompt", handlers.PostEditPrompt(database, ep))
 	})

@@ -516,6 +516,98 @@ func TestGetBaselineTraces_NonexistentBaseline(t *testing.T) {
 	}
 }
 
+// --- Embedding CRUD tests ---
+
+func TestInsertEmbedding_RoundTrip(t *testing.T) {
+	db := testDB(t)
+	tr, _ := db.CreateTrace("emb-trace", "claudecode", nil)
+
+	vec := []float32{0.1, 0.2, 0.3, 0.4}
+	if err := db.InsertEmbedding(tr.ID, vec, "voyage-3-lite"); err != nil {
+		t.Fatalf("InsertEmbedding: %v", err)
+	}
+
+	got, err := db.GetEmbedding(tr.ID)
+	if err != nil {
+		t.Fatalf("GetEmbedding: %v", err)
+	}
+	if got.TraceID != tr.ID {
+		t.Errorf("trace_id round-trip: expected %s, got %s", tr.ID, got.TraceID)
+	}
+	if got.ModelName != "voyage-3-lite" {
+		t.Errorf("model_name round-trip: expected voyage-3-lite, got %s", got.ModelName)
+	}
+	if len(got.Vector) != 4 {
+		t.Fatalf("vector length round-trip: expected 4, got %d", len(got.Vector))
+	}
+	for i, v := range vec {
+		if got.Vector[i] != v {
+			t.Errorf("vector[%d] round-trip: expected %v, got %v", i, v, got.Vector[i])
+		}
+	}
+}
+
+func TestGetEmbedding_NotFound(t *testing.T) {
+	db := testDB(t)
+	_, err := db.GetEmbedding("nonexistent-trace-id")
+	if err == nil {
+		t.Errorf("expected error on missing embedding, got nil")
+	}
+}
+
+func TestListEmbeddings_ReturnsAll(t *testing.T) {
+	db := testDB(t)
+	t1, _ := db.CreateTrace("t1", "claudecode", nil)
+	t2, _ := db.CreateTrace("t2", "claudecode", nil)
+	t3, _ := db.CreateTrace("t3", "claudecode", nil) // no embedding for t3
+
+	db.InsertEmbedding(t1.ID, []float32{1, 0}, "m1")
+	db.InsertEmbedding(t2.ID, []float32{0, 1}, "m1")
+
+	list, err := db.ListEmbeddings()
+	if err != nil {
+		t.Fatalf("ListEmbeddings: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 embeddings (t3 unembedded), got %d", len(list))
+	}
+	ids := map[string]bool{}
+	for _, e := range list {
+		ids[e.TraceID] = true
+	}
+	if !ids[t1.ID] || !ids[t2.ID] {
+		t.Errorf("expected t1 + t2 in list, got %v", ids)
+	}
+	if ids[t3.ID] {
+		t.Errorf("t3 (no embedding) leaked into list")
+	}
+}
+
+func TestInsertEmbedding_UpsertOnConflict(t *testing.T) {
+	// Inserting an embedding for the same trace twice should replace, not error
+	// (trace_id is the PK; production embedder may re-run on the same trace).
+	db := testDB(t)
+	tr, _ := db.CreateTrace("upsert", "claudecode", nil)
+
+	if err := db.InsertEmbedding(tr.ID, []float32{1, 0, 0}, "v1"); err != nil {
+		t.Fatalf("first InsertEmbedding: %v", err)
+	}
+	if err := db.InsertEmbedding(tr.ID, []float32{0, 1, 0}, "v2"); err != nil {
+		t.Fatalf("second InsertEmbedding (upsert): %v", err)
+	}
+
+	got, err := db.GetEmbedding(tr.ID)
+	if err != nil {
+		t.Fatalf("GetEmbedding after upsert: %v", err)
+	}
+	if got.ModelName != "v2" {
+		t.Errorf("expected upserted model_name=v2, got %s", got.ModelName)
+	}
+	if got.Vector[1] != 1 {
+		t.Errorf("expected upserted vector, got %v", got.Vector)
+	}
+}
+
 // --- Close test ---
 
 func TestClose(t *testing.T) {

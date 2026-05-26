@@ -91,6 +91,13 @@ func (v *VoyageEmbedder) Embed(ctx context.Context, req EmbedRequest) (EmbedResu
 	return EmbedResult{Vector: parsed.Data[0].Embedding, ModelName: v.model}, nil
 }
 
+// StepsToText is the exported wrapper used by the seed-cache generator to
+// produce the same embedding input string the production VoyageEmbedder uses
+// at request time. Byte-identical input = byte-identical vector from Voyage.
+func StepsToText(steps []snapshot.Step) string {
+	return stepsToText(steps)
+}
+
 // stepsToText renders a trace's step sequence as a single string the embedding
 // model can consume. Includes tool names + content so semantically-related
 // traces (same tool order, similar prompts) cluster in vector space.

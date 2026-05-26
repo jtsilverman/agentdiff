@@ -3,10 +3,16 @@
 package seed
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/jtsilverman/agentdiff/web/api/db"
@@ -33,7 +39,7 @@ func TestGenerateSeedCache(t *testing.T) {
 	cf := cacheFile{
 		Triage:     buildTriageEntries(t, stepsByName),
 		Transcript: buildTranscriptEntries(t, stepsByName),
-		Embeddings: nil,
+		Embeddings: buildEmbeddingEntries(t, stepsByName),
 	}
 
 	out, err := json.MarshalIndent(cf, "", "  ")
@@ -46,7 +52,7 @@ func TestGenerateSeedCache(t *testing.T) {
 	if err := os.WriteFile(dest, out, 0o644); err != nil {
 		t.Fatalf("write %s: %v", dest, err)
 	}
-	t.Logf("wrote %d triage + %d transcript entries to %s", len(cf.Triage), len(cf.Transcript), dest)
+	t.Logf("wrote %d triage + %d transcript + %d embedding entries to %s", len(cf.Triage), len(cf.Transcript), len(cf.Embeddings), dest)
 }
 
 func loadStepsByName(t *testing.T, database *db.DB) map[string][]snapshot.Step {
@@ -285,4 +291,116 @@ func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []tr
 		})
 	}
 	return out
+}
+
+// buildEmbeddingEntries calls Voyage AI for each seeded trace and returns the
+// vectors. Skipped (returns nil) when VOYAGE_API_KEY is not set, so the
+// triage/transcript half of the generator can run without external dependencies.
+func buildEmbeddingEntries(t *testing.T, steps map[string][]snapshot.Step) []embeddingEntry {
+	t.Helper()
+
+	apiKey := os.Getenv("VOYAGE_API_KEY")
+	if apiKey == "" {
+		t.Log("VOYAGE_API_KEY not set; skipping embedding generation")
+		return nil
+	}
+
+	model := os.Getenv("VOYAGE_MODEL")
+	if model == "" {
+		model = "voyage-3-lite"
+	}
+
+	// Sort names for deterministic output ordering in seed-cache.json.
+	names := make([]string, 0, len(steps))
+	for name := range steps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	// Voyage free tier without a payment method caps at 3 RPM. Sleep 21s
+	// between calls to stay under the limit; the free-token allowance (200M
+	// tokens for Voyage 3 series) is wildly more than this generator needs.
+	// Dedupe by rendered text first: identical step content (e.g., the 5
+	// identical runs in seed-tool-order-stable) produces identical text and
+	// thus identical Voyage output, so one API call covers all matching traces.
+	const throttle = 21 * time.Second
+
+	textByName := make(map[string]string, len(names))
+	uniqueTexts := make([]string, 0, len(names))
+	seen := make(map[string]bool)
+	for _, name := range names {
+		text := handlers.StepsToText(steps[name])
+		textByName[name] = text
+		if !seen[text] {
+			seen[text] = true
+			uniqueTexts = append(uniqueTexts, text)
+		}
+	}
+	t.Logf("voyage: %d traces collapse to %d unique texts", len(names), len(uniqueTexts))
+
+	vecByText := make(map[string][]float32, len(uniqueTexts))
+	for i, text := range uniqueTexts {
+		if i > 0 {
+			time.Sleep(throttle)
+		}
+		vec, err := voyageEmbed(apiKey, model, text)
+		if err != nil {
+			t.Fatalf("voyage embed unique text %d/%d: %v", i+1, len(uniqueTexts), err)
+		}
+		vecByText[text] = vec
+		t.Logf("embedded unique %d/%d (dim=%d)", i+1, len(uniqueTexts), len(vec))
+	}
+
+	out := make([]embeddingEntry, 0, len(names))
+	for _, name := range names {
+		out = append(out, embeddingEntry{
+			TraceName: name,
+			Vector:    vecByText[textByName[name]],
+			ModelName: model,
+		})
+	}
+	t.Logf("populated %d embedding entries from %d Voyage calls", len(out), len(uniqueTexts))
+	return out
+}
+
+// voyageEmbed posts a single trace's rendered text to the Voyage API and
+// returns the vector. Mirrors handlers.VoyageEmbedder.Embed but stripped
+// down for the generator's one-text-at-a-time use.
+func voyageEmbed(apiKey, model, text string) ([]float32, error) {
+	body, err := json.Marshal(map[string]interface{}{
+		"input": []string{text},
+		"model": model,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost,
+		"https://api.voyageai.com/v1/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("voyage call: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("voyage %d: %s", resp.StatusCode, string(raw))
+	}
+	var parsed struct {
+		Data []struct {
+			Embedding []float32 `json:"embedding"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	if len(parsed.Data) == 0 || len(parsed.Data[0].Embedding) == 0 {
+		return nil, fmt.Errorf("voyage returned no embedding")
+	}
+	return parsed.Data[0].Embedding, nil
 }

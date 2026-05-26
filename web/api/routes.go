@@ -1,13 +1,17 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/web/api/db"
 	"github.com/jtsilverman/agentdiff/web/api/handlers"
 )
 
-// RegisterRoutes wires all API handlers onto the router.
-func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager, summarizer handlers.Summarizer, counterfactualer handlers.Counterfactualer, editPrompter handlers.EditPrompter, embedder handlers.Embedder) {
+// RegisterRoutes wires all API handlers onto the router. rateLimit wraps only
+// the two expensive endpoints (counterfactual + edit-prompt) that generate
+// fresh agent traces with no cache; all other routes pass through untouched.
+func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager, summarizer handlers.Summarizer, counterfactualer handlers.Counterfactualer, editPrompter handlers.EditPrompter, embedder handlers.Embedder, rateLimit func(http.Handler) http.Handler) {
 	r.Route("/api", func(r chi.Router) {
 		// Trace endpoints
 		r.Post("/traces", handlers.PostTrace(database, embedder))
@@ -16,8 +20,8 @@ func RegisterRoutes(r chi.Router, database *db.DB, triager handlers.Triager, sum
 		r.Get("/traces/{id}/transcript", handlers.GetTranscript(database, summarizer))
 		r.Get("/traces/{id}/similar", handlers.GetSimilar(database))
 		r.Post("/traces/{id}/promote", handlers.PromoteTrace(database))
-		r.Post("/traces/{id}/counterfactual", handlers.PostCounterfactual(database, counterfactualer))
-		r.Post("/traces/{id}/edit-prompt", handlers.PostEditPrompt(database, editPrompter))
+		r.With(rateLimit).Post("/traces/{id}/counterfactual", handlers.PostCounterfactual(database, counterfactualer))
+		r.With(rateLimit).Post("/traces/{id}/edit-prompt", handlers.PostEditPrompt(database, editPrompter))
 
 		// Baseline endpoints
 		r.Post("/baselines", handlers.PostBaseline(database))

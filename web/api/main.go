@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jtsilverman/agentdiff/web/api/db"
@@ -54,11 +55,22 @@ func main() {
 		embedder = v
 	}
 
+	killSwitch := os.Getenv("DEMO_KILL_SWITCH") == "true"
+	if killSwitch {
+		log.Printf("warning: DEMO_KILL_SWITCH=true — counterfactual + edit-prompt will always short-circuit to easter-egg payload (no LLM calls)")
+	}
+	rateLimit := middleware.RateLimit(middleware.RateLimitConfig{
+		DB:         database,
+		Threshold:  5,
+		KillSwitch: killSwitch,
+		Now:        time.Now,
+	})
+
 	r := chi.NewRouter()
 	r.Use(middleware.CORS)
 	r.Use(middleware.Logging)
 
-	RegisterRoutes(r, database, triager, summarizer, counterfactualer, editPrompter, embedder)
+	RegisterRoutes(r, database, triager, summarizer, counterfactualer, editPrompter, embedder, rateLimit)
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("agentdiff-web listening on %s", addr)

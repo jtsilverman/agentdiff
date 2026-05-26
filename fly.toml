@@ -1,0 +1,20 @@
+app = "agentdiff-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "web/api/Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "agentdiff_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

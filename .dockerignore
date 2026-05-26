@@ -1,0 +1,14 @@
+.git
+.github
+.worktrees
+web/frontend/node_modules
+web/frontend/.next
+web/frontend/.env.local
+web/frontend/*.tsbuildinfo
+*.db
+.agentdiff
+agentdiff
+testdata
+**/*_test.go
+README.md
+SPEC*.md

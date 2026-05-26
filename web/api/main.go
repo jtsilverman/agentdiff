@@ -28,6 +28,9 @@ func main() {
 	if err := seed.Seed(database); err != nil {
 		log.Printf("warning: seed failed (continuing): %v", err)
 	}
+	if err := seed.LoadCaches(database); err != nil {
+		log.Printf("warning: load caches failed (continuing): %v", err)
+	}
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {

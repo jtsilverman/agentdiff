@@ -1,0 +1,324 @@
+{
+  "triage": [
+    {
+      "trace_a_name": "seed-tool-order-stable/run-1",
+      "trace_b_name": "seed-tool-order-stable/run-2",
+      "prompts_hash": "428883cead30a05102b42b9dca406f623ffbea7e779d034c12738b44b807e241",
+      "summary": "Both runs follow the same read_file → write_file sequence with no deviation. The agent's tool order is deterministic across both invocations.",
+      "classification": "variance",
+      "likely_cause": "No behavioral change detected. Either both runs were guided by the same deterministic prompt path, or any prompt nondeterminism was resolved identically. This is the expected pattern for a stable agent on a well-specified task."
+    },
+    {
+      "trace_a_name": "seed-tool-order-variance/run-1",
+      "trace_b_name": "seed-tool-order-variance/run-4",
+      "prompts_hash": "82608c15fbc34bd8da1a956af0027210050b1d947c8623145f5983ab275e2577",
+      "summary": "Run-1 uses the direct read_file → write_file path; run-4 prepends a search step before reading. The longer path explores before committing to the read target, suggesting the agent treated the task as requiring discovery.",
+      "classification": "variance",
+      "likely_cause": "Both paths are valid completions of the same task. The agent's choice between them likely depends on its interpretation of prompt phrasing (e.g., 'find and read X' vs 'read X'). This is healthy variance, not a regression, and reflects genuine ambiguity in the original prompt rather than a bug."
+    },
+    {
+      "trace_a_name": "seed-tool-order-variance/run-3",
+      "trace_b_name": "seed-tool-order-variance/run-5",
+      "prompts_hash": "82608c15fbc34bd8da1a956af0027210050b1d947c8623145f5983ab275e2577",
+      "summary": "Run-3 follows the short read_file → write_file path; run-5 follows the longer search → read_file → write_file path. The two are members of distinct behavioral strategies within this baseline.",
+      "classification": "variance",
+      "likely_cause": "Cross-strategy comparison. Both strategies are present in this baseline (3 short runs, 2 long runs), so individual divergence between any short and long run is the expected outcome rather than a defect."
+    },
+    {
+      "trace_a_name": "seed-prompt-regression/before-1",
+      "trace_b_name": "seed-prompt-regression/after-prompt-change",
+      "prompts_hash": "b9d5533d0b84908dbe7bf5ca6f84822584c9cbf588acae228047074c45f60689",
+      "summary": "Run before-1 includes an intermediate search step (read_file → search → write_file). The after-prompt-change run drops the search and goes straight from read_file to write_file. A behavior previously present is now absent.",
+      "classification": "regression",
+      "likely_cause": "The most likely cause is a change to the system prompt or task description that no longer signals discovery is needed. If the search step was load-bearing (e.g., locating the correct file before reading), this regression is a silent quality drop. If search was incidental, the simpler path is an improvement. Recommend manually checking the new prompt against the original task requirements."
+    },
+    {
+      "trace_a_name": "seed-prompt-regression/before-1",
+      "trace_b_name": "seed-prompt-regression/before-2",
+      "prompts_hash": "be8a19704aa1aac3c60b00a0a17ba68abf8e47443f16a021815031e657fe14ff",
+      "summary": "Both runs follow the read_file → search → write_file sequence with identical tool selection and ordering. No divergence between baseline runs.",
+      "classification": "variance",
+      "likely_cause": "Within-baseline reproducibility check. The agent behaves consistently across multiple invocations of the same pre-change prompt, so any divergence observed in the after-prompt-change run is attributable to the prompt change rather than to nondeterminism."
+    },
+    {
+      "trace_a_name": "seed-novel-tool-discovery/run-1",
+      "trace_b_name": "seed-novel-tool-discovery/run-4",
+      "prompts_hash": "c4572ffcac3c1a4e6f0cb72533a78c31d997f7d29808875c121c445b63e2a6ba",
+      "summary": "Run-1 uses the canonical read_file → write_file path. Run-4 introduces a new grep step between read and write that does not appear in any earlier run.",
+      "classification": "additive",
+      "likely_cause": "The agent has discovered (or been granted access to) the grep tool and is incorporating it into its workflow. This is additive behavior rather than a regression: the existing read+write capability is preserved, and a new search-within-content capability has been layered on top. Worth verifying that grep's output is being used downstream and not merely invoked."
+    },
+    {
+      "trace_a_name": "seed-novel-tool-discovery/run-4",
+      "trace_b_name": "seed-novel-tool-discovery/run-5",
+      "prompts_hash": "75606e4e3cf6165c4a48bdfbb0dad1ed15dffc4adab0ffc1b8b60db6c6767315",
+      "summary": "Both runs use the novel read_file → grep → write_file path consistently. The new tool sequence is stable across multiple invocations once the agent adopted it.",
+      "classification": "variance",
+      "likely_cause": "Post-adoption stability check. The agent has settled on the grep-augmented workflow, suggesting either a stable prompt change or a learned-preference for the new pattern. No further divergence within the post-adoption cohort."
+    },
+    {
+      "trace_a_name": "seed-noise-and-strategies/fetch-parse-store-1",
+      "trace_b_name": "seed-noise-and-strategies/fetch-store-1",
+      "prompts_hash": "04ce701880f695c4c2b55ec8877da30653e07647323c564a606c0c3aea2db20e",
+      "summary": "The fetch-parse-store run includes an intermediate parse step before storing; the fetch-store run goes directly from fetch to store, skipping parsing entirely.",
+      "classification": "variance",
+      "likely_cause": "Two distinct strategies are present in this baseline. fetch-parse-store reflects a 'validate-then-persist' pattern; fetch-store reflects a 'store-raw-and-defer-parsing' pattern. Both are valid completions; the choice between them depends on whether the agent interprets the data as needing transformation at ingest time."
+    },
+    {
+      "trace_a_name": "seed-noise-and-strategies/fetch-parse-store-1",
+      "trace_b_name": "seed-noise-and-strategies/outlier-bash-fetch",
+      "prompts_hash": "c25bc698314faee2b4d34e27b69de89baff41051fc6405ed061b005042c4e4f5",
+      "summary": "The fetch-parse-store run uses three structured tools (fetch, parse, store). The outlier run invokes bash before fetch and omits parse and store entirely, producing a fundamentally different shape.",
+      "classification": "regression",
+      "likely_cause": "The outlier run is incomplete by the standard of every other baseline trace: no persistence step, prefixed by an ad-hoc bash invocation. This pattern suggests either a degraded prompt that failed to elicit the structured workflow, or a model-side regression that drops the structured-output guarantee. Strong candidate for triage as a real defect, not benign variance."
+    },
+    {
+      "trace_a_name": "seed-noise-and-strategies/fetch-store-1",
+      "trace_b_name": "seed-noise-and-strategies/outlier-bash-fetch",
+      "prompts_hash": "00bc486b62bba8a7846a71ccc67a0b25460e0dd42636b082a82bd5eb2271d168",
+      "summary": "The fetch-store run completes the persistence step; the outlier run replaces it with bash. Both omit parsing, but only one persists.",
+      "classification": "regression",
+      "likely_cause": "Even compared against the more permissive fetch-store strategy, the outlier drops the persistence step. The bash invocation is unstructured and not wired to downstream consumers, so the run effectively produced no usable output. This is a clear regression against the demonstrated minimum-viable path."
+    }
+  ],
+  "transcript": [
+    {
+      "trace_name": "seed-tool-order-stable/run-1",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-stable/run-2",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-stable/run-3",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-stable/run-4",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-stable/run-5",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-variance/run-1",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-variance/run-2",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-variance/run-3",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-variance/run-4",
+      "prompts_hash": "c68ad455bd45fc877eef7e7d91515f5e1ae46badcc67fa0ff09e0fe22d011ccd",
+      "summary": "The agent took a discovery-first path: it searched before reading, then wrote. The presence of the search step suggests the agent interpreted the task as requiring it to locate the target before consuming it, rather than receiving the target reference directly in the prompt.",
+      "key_decisions": [
+        "Invoked search before read_file to locate the target rather than assuming the prompt named it directly.",
+        "Followed the search with a single read_file call rather than chaining multiple reads, indicating the search returned a precise enough result.",
+        "Closed with write_file to commit the output, matching the prompt's expected deliverable."
+      ]
+    },
+    {
+      "trace_name": "seed-tool-order-variance/run-5",
+      "prompts_hash": "c68ad455bd45fc877eef7e7d91515f5e1ae46badcc67fa0ff09e0fe22d011ccd",
+      "summary": "The agent took a discovery-first path: it searched before reading, then wrote. The presence of the search step suggests the agent interpreted the task as requiring it to locate the target before consuming it, rather than receiving the target reference directly in the prompt.",
+      "key_decisions": [
+        "Invoked search before read_file to locate the target rather than assuming the prompt named it directly.",
+        "Followed the search with a single read_file call rather than chaining multiple reads, indicating the search returned a precise enough result.",
+        "Closed with write_file to commit the output, matching the prompt's expected deliverable."
+      ]
+    },
+    {
+      "trace_name": "seed-prompt-regression/before-1",
+      "prompts_hash": "904270f3962fde2199cdb68b061f513bfcea7b01477a48fd006a63ba5350e2f7",
+      "summary": "The agent executed read_file → search → write_file. Reading first established the input baseline; the search step likely inspected content for a specific pattern before writing the final output. This shape matches a 'load then query' pattern rather than a pure transform.",
+      "key_decisions": [
+        "Loaded the file before searching, suggesting the search operated on the file's contents rather than on the filesystem.",
+        "Used a single search-and-write cycle rather than iterative refinement, indicating the search returned an actionable result on the first pass."
+      ]
+    },
+    {
+      "trace_name": "seed-prompt-regression/before-2",
+      "prompts_hash": "904270f3962fde2199cdb68b061f513bfcea7b01477a48fd006a63ba5350e2f7",
+      "summary": "The agent executed read_file → search → write_file. Reading first established the input baseline; the search step likely inspected content for a specific pattern before writing the final output. This shape matches a 'load then query' pattern rather than a pure transform.",
+      "key_decisions": [
+        "Loaded the file before searching, suggesting the search operated on the file's contents rather than on the filesystem.",
+        "Used a single search-and-write cycle rather than iterative refinement, indicating the search returned an actionable result on the first pass."
+      ]
+    },
+    {
+      "trace_name": "seed-prompt-regression/before-3",
+      "prompts_hash": "904270f3962fde2199cdb68b061f513bfcea7b01477a48fd006a63ba5350e2f7",
+      "summary": "The agent executed read_file → search → write_file. Reading first established the input baseline; the search step likely inspected content for a specific pattern before writing the final output. This shape matches a 'load then query' pattern rather than a pure transform.",
+      "key_decisions": [
+        "Loaded the file before searching, suggesting the search operated on the file's contents rather than on the filesystem.",
+        "Used a single search-and-write cycle rather than iterative refinement, indicating the search returned an actionable result on the first pass."
+      ]
+    },
+    {
+      "trace_name": "seed-prompt-regression/before-4",
+      "prompts_hash": "904270f3962fde2199cdb68b061f513bfcea7b01477a48fd006a63ba5350e2f7",
+      "summary": "The agent executed read_file → search → write_file. Reading first established the input baseline; the search step likely inspected content for a specific pattern before writing the final output. This shape matches a 'load then query' pattern rather than a pure transform.",
+      "key_decisions": [
+        "Loaded the file before searching, suggesting the search operated on the file's contents rather than on the filesystem.",
+        "Used a single search-and-write cycle rather than iterative refinement, indicating the search returned an actionable result on the first pass."
+      ]
+    },
+    {
+      "trace_name": "seed-prompt-regression/after-prompt-change",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-novel-tool-discovery/run-1",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-novel-tool-discovery/run-2",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-novel-tool-discovery/run-3",
+      "prompts_hash": "e0e04f8ddaf3e3c119798621e1816f83bedd445d57a78b12a7406618fcbf4cae",
+      "summary": "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path.",
+      "key_decisions": [
+        "Chose to read before writing, establishing the input baseline before producing output.",
+        "Skipped exploratory tools (search, grep) because the prompt did not require discovering content."
+      ]
+    },
+    {
+      "trace_name": "seed-novel-tool-discovery/run-4",
+      "prompts_hash": "c5980626deb269108305370c1e1cacea694ad779cc29f94ab9c595184f2d872e",
+      "summary": "The agent invoked grep between read_file and write_file. The grep step filters or extracts content from the loaded file, signaling that the agent treated the task as requiring pattern-based extraction rather than wholesale transformation.",
+      "key_decisions": [
+        "Adopted grep as an intermediate filter rather than asking the model to do the filtering inline.",
+        "Preserved the read-then-write skeleton, layering grep on top rather than replacing existing steps."
+      ]
+    },
+    {
+      "trace_name": "seed-novel-tool-discovery/run-5",
+      "prompts_hash": "c5980626deb269108305370c1e1cacea694ad779cc29f94ab9c595184f2d872e",
+      "summary": "The agent invoked grep between read_file and write_file. The grep step filters or extracts content from the loaded file, signaling that the agent treated the task as requiring pattern-based extraction rather than wholesale transformation.",
+      "key_decisions": [
+        "Adopted grep as an intermediate filter rather than asking the model to do the filtering inline.",
+        "Preserved the read-then-write skeleton, layering grep on top rather than replacing existing steps."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/fetch-parse-store-1",
+      "prompts_hash": "a226f09e0e59d9c81443196d8cbce7707740ff22bdbf6e501d149c1108d43f2a",
+      "summary": "The agent followed a three-stage ingestion pipeline: fetch the data, parse it into a structured form, then store the parsed result. This is the canonical 'validate at ingest' pattern that catches malformed inputs at parse time rather than at downstream consumption.",
+      "key_decisions": [
+        "Inserted a parse step between fetch and store rather than persisting raw input.",
+        "Treated parsing as a contract enforcement point: invalid input fails here, not later."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/fetch-parse-store-2",
+      "prompts_hash": "a226f09e0e59d9c81443196d8cbce7707740ff22bdbf6e501d149c1108d43f2a",
+      "summary": "The agent followed a three-stage ingestion pipeline: fetch the data, parse it into a structured form, then store the parsed result. This is the canonical 'validate at ingest' pattern that catches malformed inputs at parse time rather than at downstream consumption.",
+      "key_decisions": [
+        "Inserted a parse step between fetch and store rather than persisting raw input.",
+        "Treated parsing as a contract enforcement point: invalid input fails here, not later."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/fetch-parse-store-3",
+      "prompts_hash": "a226f09e0e59d9c81443196d8cbce7707740ff22bdbf6e501d149c1108d43f2a",
+      "summary": "The agent followed a three-stage ingestion pipeline: fetch the data, parse it into a structured form, then store the parsed result. This is the canonical 'validate at ingest' pattern that catches malformed inputs at parse time rather than at downstream consumption.",
+      "key_decisions": [
+        "Inserted a parse step between fetch and store rather than persisting raw input.",
+        "Treated parsing as a contract enforcement point: invalid input fails here, not later."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/fetch-store-1",
+      "prompts_hash": "a0e8605e5db0de33edf07600787ab683cf7acf62ccbb41f2214a7c2774204a6d",
+      "summary": "The agent skipped parsing and stored the raw fetched payload directly. This 'store-raw-and-defer-parsing' pattern trades early validation for write throughput; downstream consumers must handle parsing themselves.",
+      "key_decisions": [
+        "Omitted parse, suggesting the agent interpreted the storage layer as schema-flexible.",
+        "Reduced the pipeline to two stages, minimizing per-record processing cost at write time."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/fetch-store-2",
+      "prompts_hash": "a0e8605e5db0de33edf07600787ab683cf7acf62ccbb41f2214a7c2774204a6d",
+      "summary": "The agent skipped parsing and stored the raw fetched payload directly. This 'store-raw-and-defer-parsing' pattern trades early validation for write throughput; downstream consumers must handle parsing themselves.",
+      "key_decisions": [
+        "Omitted parse, suggesting the agent interpreted the storage layer as schema-flexible.",
+        "Reduced the pipeline to two stages, minimizing per-record processing cost at write time."
+      ]
+    },
+    {
+      "trace_name": "seed-noise-and-strategies/outlier-bash-fetch",
+      "prompts_hash": "c87c4eecc588b8870b0d4f7ca22ef3bee7f210a1ec0c5529c1a564f0f756674e",
+      "summary": "The agent invoked bash first, then fetch, then stopped. No parse step, no store step. The bash prefix is unusual: most agents in this baseline use structured tools end-to-end rather than dropping to shell. The run terminated without producing a persisted artifact, suggesting either a workflow breakdown or a deliberate exploratory deviation.",
+      "key_decisions": [
+        "Reached for bash before any structured tool, breaking from the baseline's structured-tool-first convention.",
+        "Stopped at fetch without invoking store, leaving the fetched data unpersisted.",
+        "Omitted parsing entirely, consistent with the truncated pipeline."
+      ]
+    }
+  ],
+  "embeddings": null
+}

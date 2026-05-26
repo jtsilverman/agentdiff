@@ -113,6 +113,13 @@ func writeTriageJSON(w http.ResponseWriter, result TriageResult) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
+// TriagePromptsHash is the exported wrapper used by the seed-cache generator
+// to pre-compute the same cache keys the handler computes at request time.
+// Returns the discriminator used by GetTriageCache / PutTriageCache.
+func TriagePromptsHash(stepsA, stepsB []snapshot.Step) string {
+	return triagePromptsHash(stepsA, stepsB)
+}
+
 // triagePromptsHash builds the cache discriminator from the structural prompt inputs.
 // Step content + role + tool-call shape is the structural surface; trace metadata (name,
 // id, created_at) is caller-discretionary and excluded so that re-uploads of the same

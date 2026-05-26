@@ -90,6 +90,13 @@ func writeTranscriptJSON(w http.ResponseWriter, result TranscriptResult) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
+// TranscriptPromptsHash is the exported wrapper used by the seed-cache generator
+// to pre-compute the same cache keys the handler computes at request time.
+// Returns the discriminator used by GetTranscriptCache / PutTranscriptCache.
+func TranscriptPromptsHash(steps []snapshot.Step) string {
+	return transcriptPromptsHash(steps)
+}
+
 // transcriptPromptsHash builds the cache discriminator from the structural prompt inputs.
 // Step content + role + tool-call shape is the structural surface; trace metadata (name,
 // id, created_at) is caller-discretionary and excluded so that re-uploads of the same

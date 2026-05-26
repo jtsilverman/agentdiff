@@ -1,6 +1,7 @@
 agentdiff
 .agentdiff/
 *.db
+.worktrees/
 
 # Frontend
 web/frontend/node_modules/

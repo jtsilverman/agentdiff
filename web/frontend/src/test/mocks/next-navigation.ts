@@ -8,9 +8,13 @@ export const mockUseRouter = vi.fn(() => ({
   back: vi.fn(),
   prefetch: vi.fn(),
 }));
+export const mockUseSearchParams = vi.fn(
+  () => new URLSearchParams() as unknown as ReturnType<typeof vi.fn>,
+);
 
 vi.mock('next/navigation', () => ({
   usePathname: mockUsePathname,
   useParams: mockUseParams,
   useRouter: mockUseRouter,
+  useSearchParams: mockUseSearchParams,
 }));

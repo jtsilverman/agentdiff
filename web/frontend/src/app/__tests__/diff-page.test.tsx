@@ -1,5 +1,8 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { mockUseParams } from '@/test/mocks/next-navigation';
+import {
+  mockUseParams,
+  mockUseSearchParams,
+} from '@/test/mocks/next-navigation';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { mockDiff, mockTraceDetail } from '@/test/mocks/fixtures';
 
@@ -78,5 +81,30 @@ describe('DiffPage', () => {
     });
     expect(screen.queryByText('delete')).not.toBeInTheDocument();
     expect(screen.getByText('insert')).toBeInTheDocument();
+  });
+
+  it('shows the auto-selected info banner when ?auto=1 is present', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('auto=1') as unknown as ReturnType<typeof vi.fn>,
+    );
+    render(<DiffPage />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Auto-selected · most recent two traces/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('does not show the auto-selected banner without ?auto=1', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams() as unknown as ReturnType<typeof vi.fn>,
+    );
+    render(<DiffPage />);
+    await waitFor(() => {
+      expect(screen.getByText('trace-a')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/Auto-selected · most recent two traces/i),
+    ).not.toBeInTheDocument();
   });
 });

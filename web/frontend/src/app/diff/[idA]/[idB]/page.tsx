@@ -8,7 +8,7 @@ import {
   type CSSProperties,
 } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getDiff, getTrace, getTriage, listTraces } from '@/lib/api';
 import type {
   AlignedPair,
@@ -470,6 +470,8 @@ function TriageBlock({ triage }: { triage: TriageResponse | null }) {
 export default function DiffPage() {
   const params = useParams<{ idA: string; idB: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoMode = searchParams.get('auto') === '1';
   const idA = params.idA;
   const idB = params.idB;
 
@@ -601,6 +603,14 @@ export default function DiffPage() {
         </header>
 
         <div className="container">
+          {autoMode && traceA && traceB && (
+            <Banner
+              kind="info"
+              title="Auto-selected · most recent two traces from different baselines"
+              body={`No IDs in the URL. Showing ${traceA.name}${summaryA?.baseline_name ? ` (${summaryA.baseline_name})` : ''} vs ${traceB.name}${summaryB?.baseline_name ? ` (${summaryB.baseline_name})` : ''}. Click Switch on either side to compare different traces.`}
+            />
+          )}
+
           {baselineMismatch && !sameTrace && (
             <Banner
               kind="warn"

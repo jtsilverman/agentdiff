@@ -26,11 +26,16 @@ type diffStepJSON struct {
 	ToolResult *toolResultResponse `json:"tool_result,omitempty"`
 }
 
-// diffPair represents one aligned pair in the diff output.
+// diffPair represents one aligned pair in the diff output. AIndex / BIndex are
+// indices into each trace's tool-call-only subsequence (1-based for display via
+// nil-vs-int distinction; -1 in the alignment translates to nil for the side
+// the op skipped — render as "··" on the empty side).
 type diffPair struct {
-	AStep *diffStepJSON `json:"a_step"`
-	BStep *diffStepJSON `json:"b_step"`
-	Op    string        `json:"op"`
+	AStep  *diffStepJSON `json:"a_step"`
+	BStep  *diffStepJSON `json:"b_step"`
+	Op     string        `json:"op"`
+	AIndex *int          `json:"a_index"`
+	BIndex *int          `json:"b_index"`
 }
 
 // diffSummary counts each operation type in the alignment.
@@ -146,9 +151,13 @@ func GetDiff(database *db.DB) http.HandlerFunc {
 
 			if ap.IndexA >= 0 && ap.IndexA < len(toolStepsA) {
 				dp.AStep = toDiffStep(toolStepsA[ap.IndexA])
+				idx := ap.IndexA
+				dp.AIndex = &idx
 			}
 			if ap.IndexB >= 0 && ap.IndexB < len(toolStepsB) {
 				dp.BStep = toDiffStep(toolStepsB[ap.IndexB])
+				idx := ap.IndexB
+				dp.BIndex = &idx
 			}
 
 			switch ap.Op {

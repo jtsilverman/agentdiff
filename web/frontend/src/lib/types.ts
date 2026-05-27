@@ -86,6 +86,8 @@ export interface AlignedPair {
   a_step: Step | null;
   b_step: Step | null;
   op: string;
+  a_index: number | null;
+  b_index: number | null;
 }
 
 export interface DiffSummary {

@@ -336,6 +336,25 @@ func TestDiff(t *testing.T) {
 		t.Errorf("expected non-empty alignment, got %v", diffResp["alignment"])
 	}
 
+	// At least one pair must carry a non-nil a_index OR b_index (the indices
+	// are required for the diff page to render per-row "01 / ··" numbering).
+	sawIndex := false
+	for _, p := range alignment {
+		pair, _ := p.(map[string]interface{})
+		if _, hasA := pair["a_index"]; !hasA {
+			t.Fatalf("expected a_index key on every alignment pair, missing on %v", pair)
+		}
+		if _, hasB := pair["b_index"]; !hasB {
+			t.Fatalf("expected b_index key on every alignment pair, missing on %v", pair)
+		}
+		if pair["a_index"] != nil || pair["b_index"] != nil {
+			sawIndex = true
+		}
+	}
+	if !sawIndex {
+		t.Errorf("expected at least one pair with a non-nil index, got all nils")
+	}
+
 	distance, ok := diffResp["distance"].(float64)
 	if !ok || distance <= 0 {
 		t.Errorf("expected distance > 0, got %v", diffResp["distance"])

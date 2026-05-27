@@ -246,10 +246,7 @@ results back into `_design/project/`. The Next.js port chunks
 - Tier: B.
 - Caveat: blocks until `_design/project/traces.*` exists.
 
-**Chunk 8: /diff page port** — port CD's `diff.{html,jsx,css}` (Prompt 2) into `web/frontend/src/app/diff/page.tsx`. Two-trace side-by-side with divergence highlighting.
-- Acceptance: route accepts two trace IDs, renders side-by-side compare, divergence rows visually emphasized, no Tremor leftovers.
-- Tier: B.
-- Caveat: blocks until `_design/project/diff.*` exists.
+**Chunk 8: /diff page port** ✓ shipped 2026-05-27.
 
 **Chunk 9: Trace detail page port** — port CD's `trace-detail.{html,jsx,css}` (Prompt 3) into `web/frontend/src/app/traces/[id]/page.tsx`. Keep existing `StepList`, `Transcript`, `MetadataBadges`; restyle container + chrome.
 - Acceptance: trace detail renders in dark-themed shell with sticky step list, all sub-components readable, no regression on data display.
@@ -301,9 +298,63 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 8 — /diff page port (blocks on `_design/project/diff.*`).
+Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
 
 ## Completed chunks
+
+- **Chunk 8: /diff page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Ported `_design/project/diff.{html,jsx,css}` into
+  `web/frontend/src/app/diff/[idA]/[idB]/page.tsx`. The new page renders
+  five stacked sections inside the design-system shell: (1) hero strip
+  with breadcrumb + H1 + 4-stat row (matches / subs / insertions /
+  deletions in `--ok` / `--warn` / `--novel` / `--bad`), (2) switcher
+  strip — two `TraceCard`s (A left-bordered accent, B left-bordered
+  novel) with a `vs` divider; each card hosts a popover `Picker` that
+  fetches the corpus via `listTraces()`, groups rows by baseline,
+  filters across name/id/baseline/task, supports click-outside +
+  Escape-to-close; selecting on either side calls
+  `router.push('/diff/<newId>/<otherId>')`, (3) summary pill row + AI
+  triage callout (`.diff-triage` block — classification-colored
+  left-border, summary, likely-cause), (4) op-filter `seg`
+  (all/matches/subs/insertions/deletions), (5) alignment list — grid
+  `1fr 56px 1fr` with a center `.diff-row-marker` (op-badge `= / ~ / +
+  / −` + long label); per-side index renders `String(i +
+  1).padStart(2, '0')` for non-null indices and `··` for the skip
+  side; ghost step renders a hatched repeating-linear-gradient
+  placeholder. Two banner variants: cross-baseline (noisy-drift
+  warning) and same-trace (empty diff). Footer carries `GET
+  /api/diff/.../...` API hint + Back-to-traces button. Backend
+  additive (chunks 4 + 7 precedent): `diffPair` JSON gains `a_index
+  *int` + `b_index *int` (set to `&ap.IndexA` / `&ap.IndexB` when ≥ 0,
+  `nil` otherwise) so the alignment list can number rows; `AlignedPair`
+  TS type mirrored; `mockDiff` fixture extended to satisfy the new
+  shape. Appended ~535 lines of diff-scoped CSS (`@keyframes fadeUp`,
+  `.diff-hero-stats`, `.diff-banner`, `.diff-switcher*`,
+  `.diff-trace-card*`, `.diff-picker*`, `.diff-summary*`,
+  `.diff-triage*`, `.diff-controls`, `.diff-rows`, `.diff-row.op-*`,
+  `.diff-row-marker`, `.diff-op-badge.op-*`, `.diff-step`,
+  `.diff-step.ghost`, `.diff-role-tag.role-*`, `.diff-step-arg*`,
+  `.diff-step-output*`, 2 responsive breakpoints at ≤980px and
+  ≤720px) to `globals.css`. REFACTOR scan deletions (all in-chunk per
+  the chunk-kickoff predictions): `web/frontend/src/components/DiffView.tsx`
+  (only consumer was this page; CD design inlines alignment row
+  markup so DiffView went dead) + `web/frontend/src/components/__tests__/DiffView.test.tsx`;
+  existing diff-page test entirely rewritten (4 new vitest+RTL
+  assertions: hero H1 "Diff" + stat-label keywords inside `<header>`
+  via `within()`; switcher strip renders both trace names + `vs`
+  divider; alignment list renders 3 op long-labels match/delete/insert;
+  clicking the `insertions` op-filter button hides match + delete
+  rows, leaves only insert). `TriagePanel.tsx` kept (still consumed
+  by `/baselines/[id]`). Full vitest 132/132 green excluding the
+  pre-existing `Nav.test.tsx` import-error (unchanged from chunks 1-7).
+  `go test ./web/api/...` all green (`TestDiff` extended to assert
+  `a_index`/`b_index` keys exist on every pair and at least one is
+  non-nil). `tsc --noEmit` clean. Key decision: kept the existing
+  `[idA]/[idB]` dynamic route shape; switching trace on either side
+  calls `router.push` rather than the CD design's `history.replaceState
+  + ?a/?b` query-param scheme — preserves canonical URLs that the
+  rest of the app already links to (chunk 7's row-anchor goes to
+  `/traces/<id>`, not `/traces.html?id=<id>`).
 
 - **Chunk 7: /traces page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Replaced the Tremor-based traces page with the Claude Design corpus

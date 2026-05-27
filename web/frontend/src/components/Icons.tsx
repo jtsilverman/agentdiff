@@ -56,3 +56,37 @@ export const ChevronRight = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const ChevronDown = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" {...props}>
+    <path
+      d="M3 5l4 4 4-4"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const Filter = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...props}>
+    <path
+      d="M2 3h10M4 7h6M5.5 11h3"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const DiffIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...props}>
+    <path
+      d="M5 3v8M9 3v8M3 7h8"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+);

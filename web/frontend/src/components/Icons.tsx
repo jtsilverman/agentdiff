@@ -80,6 +80,20 @@ export const Filter = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const Branch = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...props}>
+    <circle cx="3.5" cy="3" r="1.4" stroke="currentColor" strokeWidth="1.2" />
+    <circle cx="3.5" cy="11" r="1.4" stroke="currentColor" strokeWidth="1.2" />
+    <circle cx="10.5" cy="7" r="1.4" stroke="currentColor" strokeWidth="1.2" />
+    <path
+      d="M3.5 4.5v5M3.5 9.5C3.5 8 6 8.5 6 7c0-1.5 2.5-1 3-1"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 export const DiffIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...props}>
     <path

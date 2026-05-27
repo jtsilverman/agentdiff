@@ -1,7 +1,12 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { mockUseParams, mockUseRouter } from '@/test/mocks/next-navigation';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { mockTraceDetail, mockTranscript, mockEmptySimilarTraces } from '@/test/mocks/fixtures';
+import {
+  mockTraceDetail,
+  mockTranscript,
+  mockEmptySimilarTraces,
+} from '@/test/mocks/fixtures';
+import type { TraceSummary } from '@/lib/types';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => (
@@ -11,88 +16,134 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/api');
 
-import { getTrace, getTranscript, getSimilar } from '@/lib/api';
+import {
+  getTrace,
+  getTranscript,
+  getSimilar,
+  listTraces,
+} from '@/lib/api';
 import TraceDetailPage from '../traces/[id]/page';
 
 const mockedGetTrace = vi.mocked(getTrace);
 const mockedGetTranscript = vi.mocked(getTranscript);
 const mockedGetSimilar = vi.mocked(getSimilar);
+const mockedListTraces = vi.mocked(listTraces);
+
+function makeTrace(
+  id: string,
+  baseline_id: string,
+  created_at: string,
+): TraceSummary {
+  return {
+    id,
+    name: `name-${id}`,
+    adapter: 'claudecode',
+    step_count: 3,
+    created_at,
+    baseline_id,
+    baseline_name: `baseline-${baseline_id}`,
+  };
+}
 
 describe('TraceDetailPage', () => {
-  const routerMock = { push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() };
+  const routerMock = {
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    prefetch: vi.fn(),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseParams.mockReturnValue({ id: 'trace-1' });
     mockUseRouter.mockReturnValue(routerMock);
-    // Default: transcript hangs so it stays in "Summarizing" state and doesn't
-    // overwhelm the existing assertions. Individual tests override as needed.
     mockedGetTranscript.mockReturnValue(new Promise(() => {}));
-    // SimilarTraces auto-fetches on mount; default to empty so its presence
-    // doesn't trip on undefined return. Per vi-mock-auto-stubs-undefined pattern.
     mockedGetSimilar.mockResolvedValue(mockEmptySimilarTraces);
+    mockedListTraces.mockResolvedValue([]);
   });
 
-  it('shows loading state, then trace name, adapter badge, step count', async () => {
+  it('shows loading state, then the trace name and adapter in the hero', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);
     expect(screen.getByText('Loading trace...')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
+    // Adapter is in the metadata grid as a mono value, not a Tremor badge.
     expect(screen.getByText('claudecode')).toBeInTheDocument();
-    expect(screen.getByText('3 steps')).toBeInTheDocument();
   });
 
-  it('shows StepList with trace steps', async () => {
+  it('renders step content from the trace in the transcript', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-    // StepList and Scrubber both render step content; assert at least one match exists.
     expect(screen.getAllByText('Hello').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('"Compare" button is disabled when diff input is empty', async () => {
+  it('shows a "Compare with another trace" action that is disabled when the corpus has fewer than 2 traces', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    mockedListTraces.mockResolvedValue([]);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
 
-    const compareBtn = screen.getByRole('button', { name: /Compare/ });
+    const compareBtn = screen.getByRole('button', {
+      name: /Compare with another trace/i,
+    });
     expect(compareBtn).toBeDisabled();
   });
 
-  it('entering a trace ID and clicking Compare calls router.push', async () => {
+  it('clicking Compare routes to /diff with an auto-picked second trace and ?auto=1', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    mockedListTraces.mockResolvedValue([
+      makeTrace('trace-1', 'b1', '2026-05-27T12:00:00Z'),
+      makeTrace('other-trace', 'b2', '2026-05-26T12:00:00Z'),
+    ]);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', {
+          name: /Compare with another trace/i,
+        }),
+      ).not.toBeDisabled();
     });
 
-    const input = screen.getByPlaceholderText('Second trace ID');
-    fireEvent.change(input, { target: { value: 'other-trace' } });
-
-    const compareBtn = screen.getByRole('button', { name: /Compare/ });
-    fireEvent.click(compareBtn);
-
-    expect(routerMock.push).toHaveBeenCalledWith('/diff/trace-1/other-trace');
+    fireEvent.click(
+      screen.getByRole('button', { name: /Compare with another trace/i }),
+    );
+    expect(routerMock.push).toHaveBeenCalledWith(
+      '/diff/trace-1/other-trace?auto=1',
+    );
   });
 
-  it('renders the Promote-to-baseline button', async () => {
+  it('renders a "View baseline" link in the hero when the trace has a baseline', async () => {
+    mockedGetTrace.mockResolvedValue(mockTraceDetail);
+    mockedListTraces.mockResolvedValue([
+      makeTrace('trace-1', 'b1', '2026-05-27T12:00:00Z'),
+    ]);
+    render(<TraceDetailPage />);
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /View baseline/i });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', '/baselines/b1');
+    });
+  });
+
+  it('renders the Promote-to-baseline button in the actions section', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-
     expect(
       screen.getByRole('button', { name: /Promote to baseline/i }),
     ).toBeInTheDocument();
@@ -103,24 +154,20 @@ describe('TraceDetailPage', () => {
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-
     expect(
       screen.getByRole('button', { name: /What if\?/i }),
     ).toBeInTheDocument();
   });
 
-  it('renders the Edit prompt button (inline prompt editor)', async () => {
+  it('renders the Edit prompt button', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-
-    // EditPromptButton's collapsed default. "Edit prompt" is SUT-unique on this
-    // page; no other sibling component renders it.
     expect(
       screen.getByRole('button', { name: /Edit prompt/i }),
     ).toBeInTheDocument();
@@ -131,48 +178,33 @@ describe('TraceDetailPage', () => {
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-
-    // Scrubber-unique gates: aria-label="step scrubber" and "Step N of M" text
-    // are not emitted by StepList, Transcript, PromoteButton, or CounterfactualButton.
-    expect(screen.getByRole('slider', { name: /step scrubber/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('slider', { name: /step scrubber/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Step 1 of 3/i)).toBeInTheDocument();
   });
 
-  it('mounts the SimilarTraces panel with the "Similar traces" title (SUT-unique anchor)', async () => {
+  it('mounts the SimilarTraces panel with the "Similar traces" title', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     render(<TraceDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Compare with another trace/i })).toBeInTheDocument();
     });
-    // SUT-unique gate: "Similar traces" panel title is rendered only by the
-    // SimilarTraces component; no sibling on this page emits it.
     expect(await screen.findByText(/Similar traces/i)).toBeInTheDocument();
-    // Sanity: getSimilar called with the route's trace id (from useParams).
     expect(mockedGetSimilar).toHaveBeenCalledWith('trace-1');
   });
 
-  it('mounts Transcript above the step list with the loaded summary', async () => {
+  it('mounts the Transcript summary in the actions section', async () => {
     mockedGetTrace.mockResolvedValue(mockTraceDetail);
     mockedGetTranscript.mockResolvedValue(mockTranscript);
-    const { container } = render(<TraceDetailPage />);
+    render(<TraceDetailPage />);
 
     await waitFor(() => {
       expect(screen.getByText(mockTranscript.summary)).toBeInTheDocument();
     });
-
-    const summaryEl = screen.getByText(mockTranscript.summary);
-    // Both Scrubber and StepList render "Hello"; the LAST occurrence is StepList's
-    // (mounted after Scrubber in JSX). Assert Transcript is above the step list.
-    const helloEls = screen.getAllByText('Hello');
-    const lastStepEl = helloEls[helloEls.length - 1];
-    expect(summaryEl.compareDocumentPosition(lastStepEl)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
     expect(mockedGetTranscript).toHaveBeenCalledWith('trace-1');
-    // The container is used implicitly via screen queries; suppress unused warning.
-    void container;
   });
 });

@@ -21,68 +21,58 @@ describe('HomePage', () => {
     vi.clearAllMocks();
   });
 
-  it('shows "Loading baselines..." initially', () => {
-    mockedListBaselines.mockReturnValue(new Promise(() => {}));
-    render(<HomePage />);
-    expect(screen.getByText('Loading baselines...')).toBeInTheDocument();
-  });
-
-  it('shows error message when listBaselines rejects', async () => {
-    mockedListBaselines.mockRejectedValue(new Error('Network down'));
-    render(<HomePage />);
-    await waitFor(() => {
-      expect(screen.getByText('Error: Network down')).toBeInTheDocument();
-    });
-  });
-
-  it('shows "No Baselines Yet" when listBaselines returns empty array', async () => {
+  it('renders the hero title and pipeline stages', async () => {
     mockedListBaselines.mockResolvedValue([]);
     render(<HomePage />);
-    await waitFor(() => {
-      expect(screen.getByText('No Baselines Yet')).toBeInTheDocument();
-    });
+    expect(screen.getByText(/See how your AI/i)).toBeInTheDocument();
+    expect(screen.getByText(/Context/)).toBeInTheDocument();
+    expect(screen.getByText(/Reasoning/)).toBeInTheDocument();
+    expect(screen.getByText(/Decision/)).toBeInTheDocument();
+    expect(screen.getByText(/Output/)).toBeInTheDocument();
   });
 
-  it('renders baseline cards with name, trace count, and link', async () => {
-    mockedListBaselines.mockResolvedValue([mockBaseline]);
+  it('renders the three example cards with their task copy', () => {
+    mockedListBaselines.mockResolvedValue([]);
+    render(<HomePage />);
+    expect(
+      screen.getByText(/Add a "Buy Now" button to the pricing page/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Diagnose yesterday.s site outage/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Build a weekly report on customer signups/i),
+    ).toBeInTheDocument();
+  });
+
+  it('links cards to matching baselines by name hint', async () => {
+    mockedListBaselines.mockResolvedValue([
+      { id: 'seed-variance', name: 'seed-tool-order-variance', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-regression', name: 'seed-prompt-regression', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-novel', name: 'seed-novel-tool-discovery', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+    ]);
     render(<HomePage />);
     await waitFor(() => {
-      expect(screen.getByText('test-baseline')).toBeInTheDocument();
+      const varianceCard = screen.getByText(/Add a "Buy Now" button/i).closest('a');
+      expect(varianceCard).toHaveAttribute('href', '/baselines/seed-variance');
     });
-    expect(screen.getByText('5 traces')).toBeInTheDocument();
-    const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', '/baselines/bl-1');
+    const regressionCard = screen.getByText(/Diagnose yesterday.s site outage/i).closest('a');
+    expect(regressionCard).toHaveAttribute('href', '/baselines/seed-regression');
+    const novelCard = screen.getByText(/Build a weekly report/i).closest('a');
+    expect(novelCard).toHaveAttribute('href', '/baselines/seed-novel');
   });
 
-  it('renders a "Try these examples" demo row when seeded baselines are present', async () => {
+  it('falls back to positional baselines when name hints do not match', async () => {
     mockedListBaselines.mockResolvedValue([
-      { id: 'seed-1', name: 'seed-prompt-regression', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
-      { id: 'seed-2', name: 'seed-tool-order-variance', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'a', name: 'alpha', trace_count: 1, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'b', name: 'beta', trace_count: 2, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'c', name: 'gamma', trace_count: 3, created_at: '2026-01-01T00:00:00Z' },
       mockBaseline,
     ]);
     render(<HomePage />);
     await waitFor(() => {
-      expect(screen.getByText('Try these examples')).toBeInTheDocument();
+      const card = screen.getByText(/Add a "Buy Now" button/i).closest('a');
+      expect(card).toHaveAttribute('href', '/baselines/a');
     });
-    // Per the rtl-assertions-gate-on-sut-unique-text pattern: gate on labels
-    // unique to the seed buttons (the human-readable scenario names) rather
-    // than on raw baseline names that also appear in the non-seed cards section.
-    expect(screen.getByRole('link', { name: /Prompt-change regression/i })).toHaveAttribute(
-      'href',
-      '/baselines/seed-1',
-    );
-    expect(screen.getByRole('link', { name: /Tool-order variance/i })).toHaveAttribute(
-      'href',
-      '/baselines/seed-2',
-    );
-  });
-
-  it('does not render the demo row when no seed-prefixed baselines exist', async () => {
-    mockedListBaselines.mockResolvedValue([mockBaseline]);
-    render(<HomePage />);
-    await waitFor(() => {
-      expect(screen.getByText('test-baseline')).toBeInTheDocument();
-    });
-    expect(screen.queryByText('Try these examples')).not.toBeInTheDocument();
   });
 });

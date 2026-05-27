@@ -24,6 +24,10 @@ import TriagePanel from '@/components/TriagePanel';
 import BaselineHeader from '@/components/baseline/BaselineHeader';
 import TraceList from '@/components/baseline/TraceList';
 import BaselinePathGraphCard from '@/components/baseline/BaselinePathGraphCard';
+import MoneyRow from '@/components/baseline/MoneyRow';
+import CounterfactualModal from '@/components/baseline/CounterfactualModal';
+import EditPromptModal from '@/components/baseline/EditPromptModal';
+import SimilarModal from '@/components/baseline/SimilarModal';
 
 export default function BaselineDetailPage() {
   const params = useParams<{ id: string }>();
@@ -45,6 +49,10 @@ export default function BaselineDetailPage() {
   const [compareError, setCompareError] = useState<string | null>(null);
 
   const [graphMode, setGraphMode] = useState<PathGraphMode>('overlay');
+
+  const [cfOpen, setCfOpen] = useState(false);
+  const [epOpen, setEpOpen] = useState(false);
+  const [simOpen, setSimOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -130,6 +138,28 @@ export default function BaselineDetailPage() {
         onModeChange={setGraphMode}
         selectedTraceId={selectedTraceId}
         report={report}
+      />
+
+      <MoneyRow
+        onCounterfactual={() => setCfOpen(true)}
+        onEditPrompt={() => setEpOpen(true)}
+        onSimilar={() => setSimOpen(true)}
+      />
+
+      <CounterfactualModal
+        open={cfOpen}
+        onClose={() => setCfOpen(false)}
+        traces={traceRefs}
+      />
+      <EditPromptModal
+        open={epOpen}
+        onClose={() => setEpOpen(false)}
+        traces={traceRefs}
+      />
+      <SimilarModal
+        open={simOpen}
+        onClose={() => setSimOpen(false)}
+        traces={traceRefs}
       />
 
       {(() => {

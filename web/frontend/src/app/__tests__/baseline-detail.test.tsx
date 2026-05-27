@@ -6,6 +6,8 @@ import {
   mockMatchResult,
   mockPathGraph,
   mockOverlay,
+  mockCounterfactual,
+  mockSimilarTraces,
 } from '@/test/mocks/fixtures';
 import type { BaselineSummary } from '@/lib/types';
 
@@ -23,6 +25,9 @@ import {
   getGraph,
   getOverlay,
   listBaselines,
+  runCounterfactual,
+  editPrompt,
+  getSimilar,
 } from '@/lib/api';
 import BaselineDetailPage from '../baselines/[id]/page';
 
@@ -31,6 +36,9 @@ const mockedCompareTrace = vi.mocked(compareTrace);
 const mockedGetGraph = vi.mocked(getGraph);
 const mockedGetOverlay = vi.mocked(getOverlay);
 const mockedListBaselines = vi.mocked(listBaselines);
+const mockedRunCounterfactual = vi.mocked(runCounterfactual);
+const mockedEditPrompt = vi.mocked(editPrompt);
+const mockedGetSimilar = vi.mocked(getSimilar);
 
 const baselineWithDescription: BaselineSummary = {
   id: 'bl-1',
@@ -222,6 +230,77 @@ describe('BaselineDetailPage', () => {
     const dots = container.querySelectorAll('.pg-cluster-dot');
     // 1 strategy + 1 noise bucket = 2 clusters.
     expect(dots.length).toBe(2);
+  });
+
+  it('clicking the counterfactual money card opens a modal that calls runCounterfactual', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    mockedRunCounterfactual.mockResolvedValue(mockCounterfactual);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-baseline')).toBeInTheDocument();
+    });
+
+    const cfCard = screen.getByRole('button', { name: /run counterfactual/i });
+    fireEvent.click(cfCard);
+
+    // Modal opens with a Run button.
+    const runBtn = await screen.findByRole('button', { name: /^run counterfactual$/i });
+    // The textarea for modified input.
+    const input = screen.getByPlaceholderText(/modified input/i);
+    fireEvent.change(input, { target: { value: 'try a different tool' } });
+    fireEvent.click(runBtn);
+
+    await waitFor(() => {
+      // First strategy member trace id = 't1'; default step 0.
+      expect(mockedRunCounterfactual).toHaveBeenCalledWith('t1', 0, 'try a different tool');
+    });
+  });
+
+  it('clicking the edit-prompt money card opens a modal that calls editPrompt', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    mockedEditPrompt.mockResolvedValue(mockCounterfactual);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-baseline')).toBeInTheDocument();
+    });
+
+    const epCard = screen.getByRole('button', { name: /edit the prompt/i });
+    fireEvent.click(epCard);
+
+    const rerunBtn = await screen.findByRole('button', { name: /rerun/i });
+    const textarea = screen.getByPlaceholderText(/rewrite the prompt/i);
+    fireEvent.change(textarea, { target: { value: 'new prompt text' } });
+    fireEvent.click(rerunBtn);
+
+    await waitFor(() => {
+      expect(mockedEditPrompt).toHaveBeenCalledWith('t1', 0, 'new prompt text');
+    });
+  });
+
+  it('clicking the find-similar money card opens a modal that calls getSimilar', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    mockedGetSimilar.mockResolvedValue(mockSimilarTraces);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-baseline')).toBeInTheDocument();
+    });
+
+    const simCard = screen.getByRole('button', { name: /find similar traces/i });
+    fireEvent.click(simCard);
+
+    const findBtn = await screen.findByRole('button', { name: /^find similar$/i });
+    fireEvent.click(findBtn);
+
+    await waitFor(() => {
+      expect(mockedGetSimilar).toHaveBeenCalledWith('t1');
+    });
+    // Results render.
+    await waitFor(() => {
+      expect(screen.getByText('grep-then-cat')).toBeInTheDocument();
+    });
   });
 
   it('clicking a trace from the list calls getOverlay and applies overlay state', async () => {

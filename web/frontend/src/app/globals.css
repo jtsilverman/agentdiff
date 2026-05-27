@@ -1184,6 +1184,257 @@ body {
   flex-wrap: wrap;
 }
 
+/* Money cards */
+.money-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.money-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  position: relative;
+  transition: all .18s;
+}
+.money-card:hover {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent-faint) 100%, transparent) 100%);
+  transform: translateY(-2px);
+}
+.money-card-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 18px;
+  font-family: var(--font-mono);
+}
+.money-card:hover .money-card-icon {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.money-card-body { flex: 1; }
+.money-card-title {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  margin-bottom: 6px;
+}
+.money-card-sub {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.money-card-cta {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.money-card:hover .money-card-cta { color: var(--accent); }
+
+/* Modal shell */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 4, 8, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  animation: scrim-in .15s ease-out;
+}
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 14px;
+  width: 100%;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 80px);
+  animation: modal-in .18s ease-out;
+}
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.modal-head {
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { margin: 0; font-size: 20px; color: var(--fg); }
+.modal-body { padding: 20px 22px; overflow-y: auto; }
+.modal-foot {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.modal-foot-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-foot-actions {
+  display: flex;
+  gap: 8px;
+}
+.ad-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 10px;
+}
+.ad-btn.ghost:hover {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+}
+
+/* Counterfactual modal */
+.cf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.cf-col {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.cf-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.cf-list { display: flex; flex-direction: column; gap: 4px; }
+.cf-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  font-size: 12.5px;
+}
+.cf-row:hover { background: var(--surface-2); }
+.cf-row.active { border-color: var(--accent); background: var(--accent-faint); }
+
+.cf-result {
+  margin-top: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  padding: 16px;
+}
+.cf-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.cf-running {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.cf-result-summary {
+  color: var(--fg-2, var(--muted));
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.pg-spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 1.5px solid var(--border-hi);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Edit prompt modal */
+.ep-diff-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0;
+}
+.ep-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+  font-family: var(--font-mono);
+}
+.ep-textarea:focus { border-color: var(--accent); }
+
+/* Similar modal */
+.sim-list { display: flex; flex-direction: column; gap: 6px; }
+.sim-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  text-decoration: none;
+  color: inherit;
+  transition: all .12s;
+}
+.sim-row:hover { border-color: var(--border-hi); background: var(--surface); }
+.sim-task { font-size: 14.5px; color: var(--fg); margin-bottom: 3px; }
+.sim-reason { font-size: 11.5px; color: var(--muted); }
+.sim-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 11px;
+}
+.sim-score { color: var(--accent); font-size: 14px; }
+
 @media (max-width: 1080px) {
   .bl-head-grid { grid-template-columns: 1fr; }
   .bl-head-side { grid-template-columns: repeat(4, 1fr); }
@@ -1192,4 +1443,6 @@ body {
   .bl-head-side { grid-template-columns: repeat(2, 1fr); }
   .tl-row { grid-template-columns: 1fr; gap: 6px; padding: 14px; }
   .tl-row.tl-head { display: none !important; }
+  .money-grid { grid-template-columns: 1fr; }
+  .cf-grid { grid-template-columns: 1fr; }
 }

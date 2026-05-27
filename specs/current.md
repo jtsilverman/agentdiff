@@ -301,9 +301,51 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 6 — Money-feature action row + modals.
+Chunk 7 — /traces page port (CD prompt 1, blocks on `_design/project/traces.*`).
 
 ## Completed chunks
+
+- **Chunk 6: Money-feature action row + modals** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Added a money-feature `MoneyRow` (three cards: Run counterfactual /
+  Edit the prompt / Find similar traces) above the existing Strategies
+  + Compare Trace cards on `baselines/[id]/page.tsx`. Each card opens
+  a design-faithful modal that calls the existing API:
+  - `CounterfactualModal` — trace picker + step `<select>` + modified
+    input textarea → `runCounterfactual(traceId, stepIndex, input)` →
+    renders `CounterfactualGraph` for the comparison.
+  - `EditPromptModal` — trace picker + step `<select>` + new prompt
+    textarea → `editPrompt(traceId, stepIndex, prompt)` → renders
+    `CounterfactualGraph`.
+  - `SimilarModal` — trace picker → `getSimilar(traceId)` → renders
+    matches as `.sim-list` rows with similarity score.
+  New components: `Modal.tsx` (reusable shell with scrim, ESC-to-close,
+  scrim-click-to-close, ARIA dialog role), `MoneyRow.tsx`,
+  `CounterfactualModal.tsx`, `EditPromptModal.tsx`, `SimilarModal.tsx`.
+  Step picker uses a numeric `<select>` over `0..step_count-1` (no
+  extra `getTrace` fetch on trace pick — keeps modals self-contained;
+  flagged at chunk-kickoff).
+  Strategies + Compare Trace cards kept intact below the money row to
+  preserve their existing 3-4 tests (flagged at chunk-kickoff).
+  CSS: appended ~250 lines to `globals.css` (`.money-grid`,
+  `.money-card`, `.modal-scrim`, `.modal`, `.modal-head/body/foot`,
+  `.modal-foot-row`, `.cf-grid`, `.cf-col`, `.cf-label`, `.cf-list`,
+  `.cf-row`, `.cf-result`, `.cf-running`, `.pg-spinner`,
+  `.ep-textarea`, `.ep-diff-head`, `.sim-list`, `.sim-row`,
+  `.sim-task`, `.sim-reason`, `.sim-meta`, `.sim-score`, `.ad-btn.ghost`);
+  responsive collapses (`money-grid` and `cf-grid` to 1 column at
+  ≤820px). Reused the existing `pg-spinner` keyframe naming from the
+  design's baseline.css.
+  Tests: added 3 vitest assertions to `baseline-detail.test.tsx` —
+  CF card click → modal opens → Run → `runCounterfactual` called with
+  `('t1', 0, 'try a different tool')`; EP card click → modal opens →
+  Rerun → `editPrompt` called with `('t1', 0, 'new prompt text')`;
+  Similar card click → modal opens → Find similar → `getSimilar`
+  called with `'t1'` + matches render. Full vitest 149/149 green;
+  pre-existing `Nav.test.tsx` transform failure unchanged. `tsc
+  --noEmit` clean. REFACTOR scan: chunk is purely additive (money
+  row + modals + CSS); no code went dead. Trace-detail's existing
+  `CounterfactualButton` / `EditPromptButton` / `SimilarTraces`
+  untouched (chunk 9 redesigns the trace detail surface separately).
 
 - **Chunk 5: Baseline path graph card** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Replaced the Tremor `<Card><Title>Path graph</Title>...` block on

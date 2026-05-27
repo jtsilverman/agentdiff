@@ -6,81 +6,12 @@
 
 const { useState: useStateT, useMemo: useMemoT, useEffect: useEffectT } = React;
 
-// ─── API outcome → existing OutcomeBadge kind ───
-const OUTCOME_KIND = {
-  succeeded: "ok",
-  variance:  "warn",
-  regressed: "bad",
-  additive:  "novel",
-};
-// The label we show users matches the API string (matches filter chip names)
-const OUTCOME_LABEL = {
-  succeeded: "succeeded",
-  variance:  "variance",
-  regressed: "regressed",
-  additive:  "additive",
-};
-
-// ─── Synthetic corpus ───
-// Schema mirrors GET /api/traces: {id, name, adapter, step_count, metadata, created_at}
-// + the additive baseline_name field the spec said WILL ship (designed for it).
-const NOW = Date.parse("2026-05-27T16:00:00Z");
-const ago = (mins) => new Date(NOW - mins * 60_000).toISOString();
-
-const TRACES = [
-  // rate-limit baseline
-  { id: "t-7a4f", name: "Run 1",            baseline_name: "rate-limit",     baseline_id: "rate-limit",     adapter: "claude-code",       step_count: 9,  metadata: { task: "Add rate limiting to a Flask endpoint", outcome: "succeeded", key_decision: "Chose flask-limiter — used decorator pattern, no Redis" }, created_at: ago(35) },
-  { id: "t-2c81", name: "Run 2",            baseline_name: "rate-limit",     baseline_id: "rate-limit",     adapter: "claude-code",       step_count: 13, metadata: { task: "Add rate limiting to a Flask endpoint", outcome: "succeeded", key_decision: "Built before_request middleware backed by Redis INCR" }, created_at: ago(40) },
-  { id: "t-9b30", name: "Run 3",            baseline_name: "rate-limit",     baseline_id: "rate-limit",     adapter: "claude-code",       step_count: 10, metadata: { task: "Add rate limiting to a Flask endpoint", outcome: "succeeded", key_decision: "flask-limiter again, in-memory backend" }, created_at: ago(44) },
-  { id: "t-d57e", name: "Run 4",            baseline_name: "rate-limit",     baseline_id: "rate-limit",     adapter: "claude-code",       step_count: 14, metadata: { task: "Add rate limiting to a Flask endpoint", outcome: "additive",  key_decision: "Wrote a Lua atomic counter, skipped Python middleware" }, created_at: ago(48) },
-  { id: "t-411a", name: "Run 5",            baseline_name: "rate-limit",     baseline_id: "rate-limit",     adapter: "claude-code",       step_count: 10, metadata: { task: "Add rate limiting to a Flask endpoint", outcome: "succeeded", key_decision: "flask-limiter, simpler config than Run 1" }, created_at: ago(53) },
-
-  // auth-migration baseline
-  { id: "t-c1b2", name: "v1.2 · Run 1",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 16, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "succeeded", key_decision: "express-session + connect-redis (baseline pattern)" }, created_at: ago(160) },
-  { id: "t-44d8", name: "v1.2 · Run 2",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 17, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "succeeded", key_decision: "Same pattern, explicit session.touch() in middleware" }, created_at: ago(168) },
-  { id: "t-9aef", name: "v1.2 · Run 3",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 18, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "succeeded", key_decision: "Same pattern, refactored middleware order" }, created_at: ago(174) },
-  { id: "t-0f30", name: "v1.2 · Run 4",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 16, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "succeeded", key_decision: "Same pattern, clean" }, created_at: ago(186) },
-  { id: "t-bc91", name: "v1.3 · Run 1",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 19, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "variance",  key_decision: "Added a refresh loop — slower but passes" }, created_at: ago(80) },
-  { id: "t-bc92", name: "v1.3 · Run 2",     baseline_name: "auth-migration", baseline_id: "auth-migration", adapter: "cursor",            step_count: 22, metadata: { task: "Migrate auth from JWT to session cookies", outcome: "regressed", key_decision: "Refresh loop deadlocked when session was read mid-rotate" }, created_at: ago(72) },
-
-  // flaky-test baseline
-  { id: "t-aa11", name: "Run 1",            baseline_name: "flaky-test",     baseline_id: "flaky-test",     adapter: "claude-code",       step_count: 24, metadata: { task: "Debug intermittent test failure in CI", outcome: "variance",  key_decision: "Added mutex around user_count() — still flakes" }, created_at: ago(720) },
-  { id: "t-aa12", name: "Run 2",            baseline_name: "flaky-test",     baseline_id: "flaky-test",     adapter: "claude-code",       step_count: 22, metadata: { task: "Debug intermittent test failure in CI", outcome: "variance",  key_decision: "Added retry-on-failure (masks the bug)" }, created_at: ago(740) },
-  { id: "t-aa13", name: "Run 3",            baseline_name: "flaky-test",     baseline_id: "flaky-test",     adapter: "claude-code",       step_count: 25, metadata: { task: "Debug intermittent test failure in CI", outcome: "variance",  key_decision: "Added DB transaction wrapping — wrong root cause" }, created_at: ago(750) },
-  { id: "t-aa14", name: "Run 4",            baseline_name: "flaky-test",     baseline_id: "flaky-test",     adapter: "claude-code",       step_count: 21, metadata: { task: "Debug intermittent test failure in CI", outcome: "additive",  key_decision: "Noticed 2y CI clock skew, fixed timestamp parser" }, created_at: ago(760) },
-  { id: "t-aa15", name: "Run 5",            baseline_name: "flaky-test",     baseline_id: "flaky-test",     adapter: "claude-code",       step_count: 25, metadata: { task: "Debug intermittent test failure in CI", outcome: "variance",  key_decision: "Promise.race await — still flakes" }, created_at: ago(770) },
-
-  // more baselines for browsing variety
-  { id: "t-key1", name: "Run 1",            baseline_name: "api-key-rotation", baseline_id: "api-key-rotation", adapter: "claude-code",   step_count: 12, metadata: { task: "Rotate API keys without downtime", outcome: "succeeded", key_decision: "Dual-write window, retire old key after 24h" }, created_at: ago(2880) },
-  { id: "t-key2", name: "Run 2",            baseline_name: "api-key-rotation", baseline_id: "api-key-rotation", adapter: "claude-code",   step_count: 15, metadata: { task: "Rotate API keys without downtime", outcome: "succeeded", key_decision: "Same dual-write, added healthcheck on new key" }, created_at: ago(2900) },
-  { id: "t-key3", name: "Run 3",            baseline_name: "api-key-rotation", baseline_id: "api-key-rotation", adapter: "claude-code",   step_count: 11, metadata: { task: "Rotate API keys without downtime", outcome: "succeeded", key_decision: "Skipped healthcheck, monitored 5xx rate instead" }, created_at: ago(2940) },
-  { id: "t-key4", name: "Run 4",            baseline_name: "api-key-rotation", baseline_id: "api-key-rotation", adapter: "claude-code",   step_count: 19, metadata: { task: "Rotate API keys without downtime", outcome: "additive",  key_decision: "Wrote a key-rotation runbook, then automated it" }, created_at: ago(3000) },
-
-  { id: "t-cors1", name: "Run 1",           baseline_name: "cors-debug",     baseline_id: "cors-debug",     adapter: "cursor",            step_count: 8,  metadata: { task: "Debug CORS preflight on /api/upload", outcome: "succeeded", key_decision: "Added OPTIONS handler with explicit Access-Control-Allow-Headers" }, created_at: ago(8640) },
-  { id: "t-cors2", name: "Run 2",           baseline_name: "cors-debug",     baseline_id: "cors-debug",     adapter: "cursor",            step_count: 11, metadata: { task: "Debug CORS preflight on /api/upload", outcome: "succeeded", key_decision: "Same as Run 1, also fixed Access-Control-Max-Age" }, created_at: ago(8700) },
-  { id: "t-cors3", name: "Run 3",           baseline_name: "cors-debug",     baseline_id: "cors-debug",     adapter: "cursor",            step_count: 14, metadata: { task: "Debug CORS preflight on /api/upload", outcome: "regressed", key_decision: "Wildcard origin caused credentials check to fail" }, created_at: ago(8760) },
-  { id: "t-cors4", name: "Run 4",           baseline_name: "cors-debug",     baseline_id: "cors-debug",     adapter: "cursor",            step_count: 9,  metadata: { task: "Debug CORS preflight on /api/upload", outcome: "succeeded", key_decision: "Reverted wildcard, allow-list of trusted origins" }, created_at: ago(8820) },
-  { id: "t-cors5", name: "Run 5",           baseline_name: "cors-debug",     baseline_id: "cors-debug",     adapter: "cursor",            step_count: 10, metadata: { task: "Debug CORS preflight on /api/upload", outcome: "succeeded", key_decision: "Same, with origin extracted to env var" }, created_at: ago(8880) },
-
-  { id: "t-cel1", name: "Run 1",            baseline_name: "celery-retry",   baseline_id: "celery-retry",   adapter: "claude-code",       step_count: 17, metadata: { task: "Make a Celery task idempotent", outcome: "succeeded", key_decision: "Idempotency key in Redis, 24h TTL" }, created_at: ago(14400) },
-  { id: "t-cel2", name: "Run 2",            baseline_name: "celery-retry",   baseline_id: "celery-retry",   adapter: "claude-code",       step_count: 21, metadata: { task: "Make a Celery task idempotent", outcome: "additive",  key_decision: "Idempotency via DB unique constraint, no Redis" }, created_at: ago(14500) },
-  { id: "t-cel3", name: "Run 3",            baseline_name: "celery-retry",   baseline_id: "celery-retry",   adapter: "claude-code",       step_count: 18, metadata: { task: "Make a Celery task idempotent", outcome: "succeeded", key_decision: "Redis lock + DB unique constraint (belt + suspenders)" }, created_at: ago(14600) },
-
-  { id: "t-pg1", name: "Run 1",             baseline_name: "redis-cache",    baseline_id: "redis-cache",    adapter: "claude-code",       step_count: 13, metadata: { task: "Add Redis-backed caching to /products", outcome: "succeeded", key_decision: "Cache-aside pattern, 5min TTL" }, created_at: ago(20000) },
-  { id: "t-pg2", name: "Run 2",             baseline_name: "redis-cache",    baseline_id: "redis-cache",    adapter: "claude-code",       step_count: 16, metadata: { task: "Add Redis-backed caching to /products", outcome: "regressed", key_decision: "Cache invalidation missed on PUT — stale reads for 5min" }, created_at: ago(20100) },
-];
-
-// ─── Helpers ───
-function relativeTime(iso) {
-  const t = new Date(iso).getTime();
-  const diff = (NOW - t) / 1000; // seconds
-  if (diff < 60) return `${Math.floor(diff)}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / (86400 * 7))}w ago`;
-  return `${Math.floor(diff / (86400 * 30))}mo ago`;
-}
+// Corpus + helpers (loaded from traces-data.jsx)
+const TRACES        = window.CORPUS_TRACES;
+const OUTCOME_KIND  = window.CORPUS_OUTCOME_KIND;
+const OUTCOME_LABEL = window.CORPUS_OUTCOME_LABEL;
+const NOW           = window.CORPUS_NOW;
+const relativeTime  = window.corpusRelativeTime;
 
 function formatStamp(iso) {
   const d = new Date(iso);

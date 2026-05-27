@@ -102,6 +102,8 @@ const Nav = ({ active }) => (
       </a>
       <div className="nav-links">
         <a href="index.html" className={"nav-link" + (active === "home" ? " active" : "")}>Home</a>
+        <a href="traces.html" className={"nav-link" + (active === "traces" ? " active" : "")}>Traces</a>
+        <a href="diff.html" className={"nav-link" + (active === "diff" ? " active" : "")}>Diff</a>
         <a href="about.html" className={"nav-link" + (active === "about" ? " active" : "")}>About</a>
         <a href="#" className="nav-link">Docs</a>
         <a href="#" className="nav-link">Changelog</a>

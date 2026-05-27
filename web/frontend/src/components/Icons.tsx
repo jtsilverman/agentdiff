@@ -21,3 +21,38 @@ export const BrandMark = ({ size = 22 }: { size?: number }) => (
     <path d="M6 15.4 L15 11.6" stroke="#5b6068" strokeWidth="1.2" />
   </svg>
 );
+
+export const Search = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" {...props}>
+    <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.3" />
+    <path
+      d="M9 9l3 3"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const Close = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" {...props}>
+    <path
+      d="M3 3l8 8M11 3l-8 8"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const ChevronRight = (props: SVGProps<SVGSVGElement>) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...props}>
+    <path
+      d="M5 3l4 4-4 4"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);

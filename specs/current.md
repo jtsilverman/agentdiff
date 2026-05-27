@@ -301,9 +301,67 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 7 — /traces page port (CD prompt 1, blocks on `_design/project/traces.*`).
+Chunk 8 — /diff page port (blocks on `_design/project/diff.*`).
 
 ## Completed chunks
+
+- **Chunk 7: /traces page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Replaced the Tremor-based traces page with the Claude Design corpus
+  browser (`_design/project/traces.{html,jsx,css}`, fetched from the CD
+  bundle and dropped into `_design/project/`). The new
+  `web/frontend/src/app/traces/page.tsx` renders a hero strip
+  (breadcrumb + H1 + 4-stat grid: traces / baselines / regressed /
+  additive, with adapter pills below), a filter bar (baseline
+  `<select>`, outcome `.seg` chips: all/succeeded/variance/regressed/additive,
+  task search input with mark-highlighting), a sort `<select>` row, and
+  a 7-column trace list (`tl-row` chrome from baseline.css + traces-
+  specific `tr-*` grid: 130/150/120/50/1fr/100/80/16) with rows linking
+  to `/traces/[id]` and per-row baseline pills linking to
+  `/baselines/[id]`. Empty state with svg icon + clear-filters button.
+  Adapter pill `display:none` at ≤1180px, time column hidden at
+  ≤980px, single-column at ≤720px. Backend additive: extended
+  `db.ListTraces()` SQL with two correlated subqueries for
+  `baseline_id` + `baseline_name` (oldest baseline by `created_at`
+  wins on multi-membership; both empty strings on orphan); mirrored on
+  `traceSummaryResponse` JSON in `web/api/handlers/traces.go` and on
+  `TraceSummary` in `web/frontend/src/lib/types.ts`. Same additive
+  precedent as chunk 4's `step_count`/`metadata` on `traceRef`.
+  REFACTOR scan deletions (all in-chunk per the chunk-kickoff
+  predictions): `web/frontend/src/components/TraceUpload.tsx`
+  (only consumer was the old /traces page; spec non-goal:
+  "Onboarding for the upload-your-own-trace flow"),
+  `web/frontend/src/components/__tests__/TraceUpload.test.tsx`,
+  `uploadTrace` + `createBaseline` exports from
+  `web/frontend/src/lib/api.ts` (no remaining consumers; promote-to-
+  baseline UX deferred indefinitely), the corresponding uploadTrace
+  + createBaseline describe blocks in `web/frontend/src/lib/__tests__/api.test.ts`,
+  and the redundant "Upload trace" link in `SiteNav.tsx` (the main
+  nav's `/traces` link already routes there). 3 new icons added to
+  `Icons.tsx`: `Search`, `Close`, `ChevronRight`. ~290 lines of
+  traces-scoped CSS (`.tr-hero`, `.tr-hero-grid`, `.tr-hero-stats`,
+  `.tr-hero-adapters`, `.tr-filters`, `.tr-filter-row`,
+  `.tr-filter-group`, `.tr-filter-search`, `.tr-filter-label`,
+  `.tr-search`, `.tr-search-input`, `.tr-search-clear`,
+  `.tr-filter-summary`, `.tr-list-head`, `.tr-table .tl-row`,
+  `.tr-cell-*`, `.tr-baseline-link`, `.tr-task-text`,
+  `.tr-decision-text`, `.tr-adapter`, `.tr-empty`, `.tr-empty-icon`,
+  `.tr-foot`, plus 4 responsive breakpoints) appended to
+  `globals.css`; all color tokens (`--bg-2`, `--border-hi`,
+  `--border-2`, `--fg-2`, `--dim`, `--accent-faint`) already in
+  `:root` from chunk 0. Tests: rewrote
+  `web/frontend/src/app/__tests__/traces.test.tsx` (4 vitest+RTL
+  assertions: hero H1 "Traces" + stats grid count, all rows render
+  with names + baseline pills + outcome badges + step counts, clicking
+  "regressed" filter chip hides non-regressed rows, search query that
+  matches nothing shows the empty state). Added
+  `TestListTraces_BaselineMembership` to `web/api/db/db_test.go`
+  asserting in-baseline trace returns baseline_id + baseline_name and
+  orphan returns empty strings. Full vitest 138/138 green excluding
+  pre-existing `Nav.test.tsx` baseline-red (untouched, documented in
+  Open Questions). `tsc --noEmit` clean. `go test ./web/api/...` all
+  green. Key decision: row anchor is the Next `<Link>` (whole row
+  clicks through to /traces/[id]); baseline pill stops propagation so
+  clicking the pill navigates to /baselines/[id] instead.
 
 - **Chunk 6: Money-feature action row + modals** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Added a money-feature `MoneyRow` (three cards: Run counterfactual /

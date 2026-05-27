@@ -25,13 +25,18 @@ type traceResponse struct {
 }
 
 // traceSummaryResponse is the JSON response for GET /api/traces list items.
+// baseline_id + baseline_name are populated when the trace belongs to a
+// baseline (oldest by created_at wins on multi-membership); empty strings
+// otherwise. See db.ListTraces.
 type traceSummaryResponse struct {
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	Adapter   string            `json:"adapter"`
-	StepCount int               `json:"step_count"`
-	Metadata  map[string]string `json:"metadata"`
-	CreatedAt string            `json:"created_at"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Adapter      string            `json:"adapter"`
+	StepCount    int               `json:"step_count"`
+	Metadata     map[string]string `json:"metadata"`
+	BaselineID   string            `json:"baseline_id"`
+	BaselineName string            `json:"baseline_name"`
+	CreatedAt    string            `json:"created_at"`
 }
 
 // traceDetailResponse is the JSON response for GET /api/traces/:id.
@@ -223,12 +228,14 @@ func ListTraces(database *db.DB) http.HandlerFunc {
 		resp := make([]traceSummaryResponse, len(traces))
 		for i, t := range traces {
 			resp[i] = traceSummaryResponse{
-				ID:        t.ID,
-				Name:      t.Name,
-				Adapter:   t.Adapter,
-				StepCount: t.StepCount,
-				Metadata:  t.Metadata,
-				CreatedAt: t.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				ID:           t.ID,
+				Name:         t.Name,
+				Adapter:      t.Adapter,
+				StepCount:    t.StepCount,
+				Metadata:     t.Metadata,
+				BaselineID:   t.BaselineID,
+				BaselineName: t.BaselineName,
+				CreatedAt:    t.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			}
 		}
 

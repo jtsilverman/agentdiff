@@ -154,6 +154,37 @@ func TestListTraces_WithStepCount(t *testing.T) {
 	}
 }
 
+// TestListTraces_BaselineMembership covers the chunk 7 additive fields:
+// when a trace belongs to a baseline, ListTraces returns baseline_id +
+// baseline_name; when a trace has no membership, both are empty strings.
+func TestListTraces_BaselineMembership(t *testing.T) {
+	db := testDB(t)
+
+	tIn, _ := db.CreateTrace("in-baseline", "claude", nil)
+	tOut, _ := db.CreateTrace("orphan", "claude", nil)
+	bl, err := db.CreateBaseline("rate-limit", "Add rate limiting to a Flask endpoint", []string{tIn.ID})
+	if err != nil {
+		t.Fatalf("CreateBaseline: %v", err)
+	}
+
+	traces, err := db.ListTraces()
+	if err != nil {
+		t.Fatalf("ListTraces: %v", err)
+	}
+	byID := map[string]TraceSummary{}
+	for _, tr := range traces {
+		byID[tr.ID] = tr
+	}
+	if got := byID[tIn.ID]; got.BaselineID != bl.ID || got.BaselineName != "rate-limit" {
+		t.Errorf("in-baseline trace: baseline_id=%q baseline_name=%q, want %q / %q",
+			got.BaselineID, got.BaselineName, bl.ID, "rate-limit")
+	}
+	if got := byID[tOut.ID]; got.BaselineID != "" || got.BaselineName != "" {
+		t.Errorf("orphan trace: baseline_id=%q baseline_name=%q, want empty",
+			got.BaselineID, got.BaselineName)
+	}
+}
+
 func TestGetTrace_NotFound(t *testing.T) {
 	db := testDB(t)
 

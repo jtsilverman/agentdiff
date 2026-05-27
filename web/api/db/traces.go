@@ -22,12 +22,14 @@ type Trace struct {
 
 // TraceSummary is a lightweight trace listing with step count.
 type TraceSummary struct {
-	ID        string
-	Name      string
-	Adapter   string
-	StepCount int
-	Metadata  map[string]string
-	CreatedAt time.Time
+	ID           string
+	Name         string
+	Adapter      string
+	StepCount    int
+	Metadata     map[string]string
+	BaselineID   string
+	BaselineName string
+	CreatedAt    time.Time
 }
 
 // TraceDetail is a full trace with reconstructed steps.
@@ -77,12 +79,23 @@ func (db *DB) CreateTrace(name, adapter string, metadata map[string]string) (Tra
 	}, nil
 }
 
-// ListTraces returns all traces with step counts.
+// ListTraces returns all traces with step counts and (oldest-membership)
+// baseline_id + baseline_name when a trace belongs to a baseline. Both
+// baseline_* fields are empty strings when the trace has no membership;
+// when a trace is in multiple baselines, oldest by created_at wins.
 func (db *DB) ListTraces() ([]TraceSummary, error) {
 	rows, err := db.conn.Query(`
 		SELECT t.id, t.name, t.adapter,
 			(SELECT COUNT(*) FROM snapshots s WHERE s.trace_id = t.id) AS step_count,
-			t.metadata, t.created_at
+			t.metadata, t.created_at,
+			(SELECT b.id   FROM baselines b
+			   INNER JOIN baseline_traces bt ON bt.baseline_id = b.id
+			   WHERE bt.trace_id = t.id
+			   ORDER BY b.created_at ASC LIMIT 1) AS baseline_id,
+			(SELECT b.name FROM baselines b
+			   INNER JOIN baseline_traces bt ON bt.baseline_id = b.id
+			   WHERE bt.trace_id = t.id
+			   ORDER BY b.created_at ASC LIMIT 1) AS baseline_name
 		FROM traces t
 		ORDER BY t.created_at DESC
 	`)
@@ -94,14 +107,20 @@ func (db *DB) ListTraces() ([]TraceSummary, error) {
 	var traces []TraceSummary
 	for rows.Next() {
 		var t TraceSummary
-		var metaStr sql.NullString
-		if err := rows.Scan(&t.ID, &t.Name, &t.Adapter, &t.StepCount, &metaStr, &t.CreatedAt); err != nil {
+		var metaStr, blID, blName sql.NullString
+		if err := rows.Scan(&t.ID, &t.Name, &t.Adapter, &t.StepCount, &metaStr, &t.CreatedAt, &blID, &blName); err != nil {
 			return nil, fmt.Errorf("scan trace: %w", err)
 		}
 		if metaStr.Valid && metaStr.String != "" {
 			if err := json.Unmarshal([]byte(metaStr.String), &t.Metadata); err != nil {
 				return nil, fmt.Errorf("unmarshal metadata: %w", err)
 			}
+		}
+		if blID.Valid {
+			t.BaselineID = blID.String
+		}
+		if blName.Valid {
+			t.BaselineName = blName.String
 		}
 		traces = append(traces, t)
 	}

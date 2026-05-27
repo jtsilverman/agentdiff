@@ -26,41 +26,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function uploadTrace(
-  body: string,
-  name: string,
-  adapter?: string,
-  metadata?: Record<string, string>,
-): Promise<TraceSummary> {
-  const params = new URLSearchParams({ name });
-  if (adapter) params.set('adapter', adapter);
-  if (metadata && Object.keys(metadata).length > 0) {
-    params.set('metadata', JSON.stringify(metadata));
-  }
-  return request<TraceSummary>(`/api/traces?${params.toString()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body,
-  });
-}
-
 export function listTraces(): Promise<TraceSummary[]> {
   return request<TraceSummary[]>('/api/traces');
 }
 
 export function getTrace(id: string): Promise<TraceDetail> {
   return request<TraceDetail>(`/api/traces/${id}`);
-}
-
-export function createBaseline(
-  name: string,
-  traceIds: string[],
-): Promise<BaselineSummary> {
-  return request<BaselineSummary>('/api/baselines', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, trace_ids: traceIds }),
-  });
 }
 
 export function listBaselines(): Promise<BaselineSummary[]> {

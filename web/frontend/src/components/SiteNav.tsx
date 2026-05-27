@@ -37,9 +37,6 @@ export default function SiteNav() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Link href="/traces" className="ad-nav-link" style={{ fontSize: 13 }}>
-            Upload trace
-          </Link>
           <Link href="/" className="ad-nav-cta">
             Try an example <ArrowRight />
           </Link>

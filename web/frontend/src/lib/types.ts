@@ -4,6 +4,8 @@ export interface TraceSummary {
   adapter: string;
   step_count: number;
   metadata?: Record<string, string>;
+  baseline_id?: string;
+  baseline_name?: string;
   created_at: string;
 }
 

@@ -2,8 +2,6 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import {
   listTraces,
   getTrace,
-  uploadTrace,
-  createBaseline,
   listBaselines,
   getCluster,
   getDiff,
@@ -47,52 +45,6 @@ describe('getTrace', () => {
     const result = await getTrace('t1');
 
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/traces/t1', undefined);
-    expect(result).toEqual(fixture);
-  });
-});
-
-describe('uploadTrace', () => {
-  it('calls POST /api/traces?name=X with octet-stream content type', async () => {
-    const fixture = { id: 't2', name: 'my-trace', adapter: 'raw', step_count: 5, created_at: '2026-01-01' };
-    globalThis.fetch = mockFetchResponse(fixture);
-
-    const result = await uploadTrace('raw body content', 'my-trace');
-
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/traces?name=my-trace', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: 'raw body content',
-    });
-    expect(result).toEqual(fixture);
-  });
-
-  it('includes adapter query param when provided', async () => {
-    const fixture = { id: 't3', name: 'my-trace', adapter: 'claude', step_count: 2, created_at: '2026-01-01' };
-    globalThis.fetch = mockFetchResponse(fixture);
-
-    const result = await uploadTrace('body', 'my-trace', 'claude');
-
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/traces?name=my-trace&adapter=claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: 'body',
-    });
-    expect(result).toEqual(fixture);
-  });
-});
-
-describe('createBaseline', () => {
-  it('calls POST /api/baselines with JSON body containing name and trace_ids', async () => {
-    const fixture = { id: 'b1', name: 'baseline1', trace_count: 2, created_at: '2026-01-01' };
-    globalThis.fetch = mockFetchResponse(fixture);
-
-    const result = await createBaseline('baseline1', ['t1', 't2']);
-
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/baselines', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'baseline1', trace_ids: ['t1', 't2'] }),
-    });
     expect(result).toEqual(fixture);
   });
 });

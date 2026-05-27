@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import '@/test/mocks/next-navigation';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { mockTrace } from '@/test/mocks/fixtures';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import type { TraceSummary } from '@/lib/types';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => (
@@ -11,109 +11,142 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/api');
 
-import { listTraces, createBaseline } from '@/lib/api';
+import { listTraces } from '@/lib/api';
 import TracesPage from '../traces/page';
 
 const mockedListTraces = vi.mocked(listTraces);
-const mockedCreateBaseline = vi.mocked(createBaseline);
 
-const mockTrace2 = { ...mockTrace, id: 'trace-2', name: 'second-trace' };
+const corpus: TraceSummary[] = [
+  {
+    id: 't-rate-1',
+    name: 'Run 1',
+    adapter: 'claude-code',
+    step_count: 9,
+    baseline_id: 'b-rate',
+    baseline_name: 'rate-limit',
+    metadata: {
+      task: 'Add rate limiting to a Flask endpoint',
+      outcome: 'succeeded',
+      key_decision: 'Chose flask-limiter',
+    },
+    created_at: '2026-05-27T15:30:00Z',
+  },
+  {
+    id: 't-auth-1',
+    name: 'v1.3 · Run 2',
+    adapter: 'cursor',
+    step_count: 22,
+    baseline_id: 'b-auth',
+    baseline_name: 'auth-migration',
+    metadata: {
+      task: 'Migrate auth from JWT to session cookies',
+      outcome: 'regressed',
+      key_decision: 'Refresh loop deadlocked when session was read mid-rotate',
+    },
+    created_at: '2026-05-27T13:00:00Z',
+  },
+  {
+    id: 't-auth-2',
+    name: 'v1.3 · Run 1',
+    adapter: 'cursor',
+    step_count: 19,
+    baseline_id: 'b-auth',
+    baseline_name: 'auth-migration',
+    metadata: {
+      task: 'Migrate auth from JWT to session cookies',
+      outcome: 'variance',
+      key_decision: 'Added a refresh loop — slower but passes',
+    },
+    created_at: '2026-05-27T12:00:00Z',
+  },
+];
 
-describe('TracesPage', () => {
+describe('TracesPage (redesigned corpus browser)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('shows "Loading traces..." initially', () => {
-    mockedListTraces.mockReturnValue(new Promise(() => {}));
+  it('renders the hero with title "Traces" and total trace count', async () => {
+    mockedListTraces.mockResolvedValue(corpus);
     render(<TracesPage />);
-    expect(screen.getByText('Loading traces...')).toBeInTheDocument();
-  });
 
-  it('shows trace table with name, adapter, steps, date columns after load', async () => {
-    mockedListTraces.mockResolvedValue([mockTrace]);
-    render(<TracesPage />);
+    expect(
+      await screen.findByRole('heading', { name: /^traces$/i, level: 1 }),
+    ).toBeInTheDocument();
+    // Total appears in the hero stats grid as a .bl-stat-val sibling
+    // of the "traces" label
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Adapter')).toBeInTheDocument();
-    expect(screen.getByText('Steps')).toBeInTheDocument();
-    expect(screen.getByText('Date')).toBeInTheDocument();
-    expect(screen.getByText('claudecode')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-  });
-
-  it('shows empty state "No traces yet" when no traces', async () => {
-    mockedListTraces.mockResolvedValue([]);
-    render(<TracesPage />);
-    await waitFor(() => {
-      expect(screen.getByText(/No traces yet/)).toBeInTheDocument();
+      const tracesLabel = screen.getAllByText('traces').find((el) =>
+        el.classList.contains('ad-dim'),
+      );
+      expect(tracesLabel).toBeDefined();
+      const statVal = tracesLabel!.parentElement!.querySelector('.bl-stat-val');
+      expect(statVal?.textContent).toBe(String(corpus.length));
     });
   });
 
-  it('selecting traces shows baseline creation form; clicking Create Baseline calls createBaseline', async () => {
-    mockedListTraces.mockResolvedValue([mockTrace, mockTrace2]);
-    mockedCreateBaseline.mockResolvedValue({ id: 'bl-new', name: 'my-bl', trace_count: 1, created_at: '' });
+  it('renders one row per trace with name, baseline pill, outcome badge, and step count', async () => {
+    mockedListTraces.mockResolvedValue(corpus);
     render(<TracesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByText('Run 1')).toBeInTheDocument();
+    });
+    // Both auth runs render
+    expect(screen.getByText('v1.3 · Run 1')).toBeInTheDocument();
+    expect(screen.getByText('v1.3 · Run 2')).toBeInTheDocument();
+    // Baseline pills render (auth-migration appears for two traces +
+    // once as a <select> option; rate-limit for one trace + option)
+    expect(screen.getAllByText('auth-migration').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('rate-limit').length).toBeGreaterThanOrEqual(1);
+    // Outcome badge labels appear (also as filter chip labels, hence ≥ 2)
+    expect(screen.getAllByText('regressed').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('variance').length).toBeGreaterThanOrEqual(2);
+    // Step counts appear inside the table cells (9, 19, 22)
+    const table = document.querySelector('.tr-table')!;
+    expect(within(table as HTMLElement).getByText('9')).toBeInTheDocument();
+    expect(within(table as HTMLElement).getByText('19')).toBeInTheDocument();
+    expect(within(table as HTMLElement).getByText('22')).toBeInTheDocument();
+  });
+
+  it('clicking the "regressed" outcome chip filters rows to regressed only', async () => {
+    mockedListTraces.mockResolvedValue(corpus);
+    render(<TracesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Run 1')).toBeInTheDocument();
     });
 
-    // Select first trace checkbox (index 0 is select-all, index 1 is first trace)
-    const checkboxes = screen.getAllByRole('checkbox');
-    fireEvent.click(checkboxes[1]);
-
-    // Baseline creation form should appear
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Baseline name')).toBeInTheDocument();
-    });
-
-    // Type baseline name into the Tremor TextInput's underlying input
-    const nameInput = screen.getByPlaceholderText('Baseline name');
-    fireEvent.change(nameInput, { target: { value: 'my-bl' } });
-
-    // Click create button
-    const createBtn = screen.getByRole('button', { name: /Create Baseline/ });
-    fireEvent.click(createBtn);
+    // The filter chips are <button> with class seg-btn; outcome badges
+    // are <span>. getByRole('button', name: /regressed/) resolves to
+    // the chip uniquely.
+    const chip = screen.getByRole('button', { name: /^regressed$/i });
+    fireEvent.click(chip);
 
     await waitFor(() => {
-      expect(mockedCreateBaseline).toHaveBeenCalledWith('my-bl', ['trace-1']);
+      // Run 1 (succeeded) hidden
+      expect(screen.queryByText('Run 1')).not.toBeInTheDocument();
+      // v1.3 · Run 1 (variance) hidden
+      expect(screen.queryByText('v1.3 · Run 1')).not.toBeInTheDocument();
+      // v1.3 · Run 2 (regressed) still visible
+      expect(screen.getByText('v1.3 · Run 2')).toBeInTheDocument();
     });
   });
 
-  it('"Select all" checkbox toggles all trace checkboxes', async () => {
-    mockedListTraces.mockResolvedValue([mockTrace, mockTrace2]);
+  it('shows the empty state when filters match no rows', async () => {
+    mockedListTraces.mockResolvedValue(corpus);
     render(<TracesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('test-trace')).toBeInTheDocument();
+      expect(screen.getByText('Run 1')).toBeInTheDocument();
     });
 
-    const checkboxes = screen.getAllByRole('checkbox');
-    // First checkbox is select-all
-    const selectAll = checkboxes[0];
-
-    // Click select all
-    fireEvent.click(selectAll);
-
-    // All checkboxes should be checked
-    await waitFor(() => {
-      const allBoxes = screen.getAllByRole('checkbox');
-      allBoxes.forEach((box) => {
-        expect(box).toBeChecked();
-      });
-    });
-
-    // Click select all again to deselect
-    fireEvent.click(selectAll);
+    // Type a query that matches nothing
+    const search = screen.getByPlaceholderText(/filter by task/i);
+    fireEvent.change(search, { target: { value: 'no-such-task-zzz' } });
 
     await waitFor(() => {
-      const allBoxes = screen.getAllByRole('checkbox');
-      allBoxes.forEach((box) => {
-        expect(box).not.toBeChecked();
-      });
+      expect(screen.getByText(/no traces match/i)).toBeInTheDocument();
     });
   });
 });

@@ -1,0 +1,26 @@
+/* density.css — card density modes applied via body[data-density="…"] */
+
+body[data-density="compact"] .ex-card-body { padding: 14px 16px 4px; gap: 7px; }
+body[data-density="compact"] .ex-card-header { padding: 10px 16px; }
+body[data-density="compact"] .ex-card-graph { height: 140px; }
+body[data-density="compact"] .ex-card-foot { padding: 10px 16px; }
+body[data-density="compact"] .ex-card-title { font-size: 16px; }
+body[data-density="compact"] .ex-card-hook { font-size: 12.5px; }
+
+body[data-density="compact"] .tl-row { padding: 8px 14px; font-size: 12.5px; }
+body[data-density="compact"] .money-card { padding: 16px; gap: 12px; }
+body[data-density="compact"] .concept-card { padding: 18px 16px; gap: 10px; }
+body[data-density="compact"] .money-deep-card { padding: 20px; }
+body[data-density="compact"] .bl-callout-body { padding: 14px 16px; gap: 6px; font-size: 13.5px; }
+
+body[data-density="spacious"] .ex-card-body { padding: 26px 24px 10px; gap: 14px; }
+body[data-density="spacious"] .ex-card-header { padding: 18px 22px; }
+body[data-density="spacious"] .ex-card-graph { height: 220px; }
+body[data-density="spacious"] .ex-card-foot { padding: 18px 24px; }
+body[data-density="spacious"] .ex-card-title { font-size: 20px; }
+
+body[data-density="spacious"] .tl-row { padding: 18px 20px; }
+body[data-density="spacious"] .money-card { padding: 30px; gap: 24px; }
+body[data-density="spacious"] .concept-card { padding: 32px 28px; gap: 18px; }
+body[data-density="spacious"] .money-deep-card { padding: 36px 32px; }
+body[data-density="spacious"] .bl-callout-body { padding: 22px 24px; gap: 14px; font-size: 15px; }

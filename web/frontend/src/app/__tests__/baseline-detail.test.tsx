@@ -146,12 +146,14 @@ describe('BaselineDetailPage', () => {
       expect(screen.getByText('bash')).toBeInTheDocument();
     });
 
-    // mockStrategyReport.strategies[0].members[0] === 'trace-1'
+    // mockStrategyReport.strategies[0].members[0] === { id: 't1', name: 'trace-1' }
+    // Button shows the name; click should pass the UUID to getOverlay so the
+    // URL stays single-segment (trace names can contain '/').
     const traceBtn = await screen.findByRole('button', { name: /trace-1/ });
     fireEvent.click(traceBtn);
 
     await waitFor(() => {
-      expect(mockedGetOverlay).toHaveBeenCalledWith('bl-1', 'trace-1');
+      expect(mockedGetOverlay).toHaveBeenCalledWith('bl-1', 't1');
     });
     await waitFor(() => {
       expect(

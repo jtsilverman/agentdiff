@@ -42,20 +42,25 @@ export interface BaselineSummary {
   created_at: string;
 }
 
+export interface TraceRef {
+  id: string;
+  name: string;
+}
+
 export interface StrategyReport {
   baseline_name: string;
   snapshot_count: number;
   strategies: Strategy[];
-  noise: string[];
+  noise: TraceRef[];
   epsilon: number;
 }
 
 export interface Strategy {
   id: number;
   count: number;
-  exemplar: string;
+  exemplar: TraceRef;
   tool_sequence: string[];
-  members: string[];
+  members: TraceRef[];
   metadata_summary?: Record<string, Record<string, number>>;
 }
 

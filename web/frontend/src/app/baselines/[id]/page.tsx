@@ -14,6 +14,7 @@ import type {
   MatchResult,
   PathGraph as PathGraphData,
   OverlayResult,
+  TraceRef,
 } from '@/lib/types';
 import PathGraph, { type PathGraphMode } from '@/components/PathGraph';
 import StrategyCluster from '@/components/StrategyCluster';
@@ -49,7 +50,7 @@ export default function BaselineDetailPage() {
       .finally(() => setLoading(false));
   }, [baselineId]);
 
-  const traceIds = useMemo(() => {
+  const traceRefs = useMemo<TraceRef[]>(() => {
     if (!report) return [];
     const fromStrategies = report.strategies.flatMap((s) => s.members);
     return [...fromStrategies, ...report.noise];
@@ -142,8 +143,8 @@ export default function BaselineDetailPage() {
 
       {(() => {
         const exemplar = report.strategies[0]?.exemplar;
-        if (!selectedTraceId || !exemplar || selectedTraceId === exemplar) return null;
-        return <TriagePanel idA={exemplar} idB={selectedTraceId} />;
+        if (!selectedTraceId || !exemplar || selectedTraceId === exemplar.id) return null;
+        return <TriagePanel idA={exemplar.id} idB={selectedTraceId} />;
       })()}
 
       <Card>
@@ -151,23 +152,23 @@ export default function BaselineDetailPage() {
         <Text className="mt-1">
           Click a trace to overlay its path on the graph above.
         </Text>
-        {traceIds.length === 0 ? (
+        {traceRefs.length === 0 ? (
           <Text className="mt-3">No traces in this baseline.</Text>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
-            {traceIds.map((id) => {
-              const selected = id === selectedTraceId;
+            {traceRefs.map((ref) => {
+              const selected = ref.id === selectedTraceId;
               return (
                 <button
-                  key={id}
-                  onClick={() => handleTraceSelect(id)}
+                  key={ref.id}
+                  onClick={() => handleTraceSelect(ref.id)}
                   className={`rounded px-3 py-1 text-sm transition-colors ${
                     selected
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-800 text-gray-100 hover:bg-gray-700'
                   }`}
                 >
-                  {id}
+                  {ref.name}
                 </button>
               );
             })}

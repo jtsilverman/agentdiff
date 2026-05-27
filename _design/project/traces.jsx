@@ -103,7 +103,7 @@ const TraceRow = ({ t, query }) => {
   };
 
   return (
-    <a href="#" className="tl-row tr-row" onClick={e => e.preventDefault()}>
+    <a href={"trace-detail.html?id=" + t.id} className="tl-row tr-row">
       <span className="tl-cell tr-cell-id">
         <span className="tl-trace-name">{t.name}</span>
         <span className="mono dim" style={{fontSize: 11}}>{t.id}</span>

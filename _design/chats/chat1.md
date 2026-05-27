@@ -812,3 +812,223 @@ Shipped `/diff` — three files (`diff.html`, `diff.jsx`, `diff.css`) plus a `di
 
 Nav updated across all four pages to include the new Diff link.
 
+## User
+
+Same project, same design system. Redesign the individual trace view at /traces/[id] — currently on old Tremor visuals, needs full dark-theme treatment.
+
+  Purpose: the visitor clicked into one specific trace from /traces or a baseline page. They want the full story: every tool call, every message, every metadata field, in one continuous deep-dive view. Think "stack trace viewer
+  for AI agents."
+
+  Data shape: one trace object with {trace_id, baseline_id, prompt, tool_sequence, transcript (full message array), metadata (task, outcome, key_decision, all custom keys)}.
+
+  Components you can reuse: Transcript.tsx, StepList.tsx, MetadataBadges.tsx. These already work, don't redesign.
+
+  What to design: the page shell + how the three components stack. A header section with task description + outcome badge + key metadata. A step-list overview (compressed, clickable to jump). The full transcript below, with
+  anchored sections for each tool call. Sticky step-list as the visitor scrolls the transcript would be excellent.
+
+  Don't: redesign nav/footer/dark theme; don't reintroduce Tremor.
+
+  Deliver: trace-detail.html, trace-detail.jsx, trace-detail.css. Include 2 screenshots — one short trace, one long with sticky-step-list demonstrating the scroll behavior.
+
+## Assistant
+
+_[tool: snip]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: show_html]_
+
+_[tool: get_webview_logs]_
+
+Clean. Now wire the `/traces` list rows to point here, and capture both states:
+
+_[tool: grep]_
+
+_[tool: str_replace_edit]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+A few wrap issues. Quick fixes:
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+_[tool: view_image]_
+
+Both rail + transcript working. Now the long trace to show sticky behavior:
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+Sticky isn't sticking — the `align-items: start` on `.td-body` is collapsing the rail's grid cell. Fix:
+
+_[tool: eval_js]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+Active step tracking isn't firing. Let me simplify the IntersectionObserver logic:Active step tracking works (step 9 highlighted at scrollY=2000). Capture the final long-trace screenshot showing the sticky rail with active step:
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+The screenshot tool uses html-to-image which doesn't preserve sticky positioning. Let me temporarily pin the rail to fixed for the capture:
+
+_[tool: eval_js]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+html-to-image doesn't capture sticky/fixed correctly — but the behavior is verified working via eval_js (rail stays at 80px from viewport top during scroll). Let me clean up the inline pinning styles and take fresh clean screenshots:Both screenshots captured. **Short trace** (`trace-detail-01-short.png`): step list rail (9 steps), tool sequence chain, transcript with anchored sections. **Long trace** (`trace-detail-02-long-rail.png`): rail visible alongside the transcript showing the 22-step auth-migration regression — rail scrolls internally to fit 22 items, displaying steps 4–13.
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+Shipped `/traces/[id]` — `trace-detail.html`, `trace-detail.jsx`, `trace-detail.css`.
+
+**Page anatomy:**
+- **Hero strip** (same `.tr-hero` foundation as sibling pages) — breadcrumb `home / traces / <id>`, name pill + trace id, H1 task description, key-decision callout with cyan accent border, action buttons (Compare with another trace, View baseline), 8-cell metadata grid (outcome / baseline / adapter / steps / tool calls / assistant turns / errors / recorded).
+- **Body** — two-column grid: 240px sticky rail + 1fr transcript.
+- **Sticky step rail** — compressed list with step number, role-colored dot, one-line summary (tool name + first arg, or content snippet). Active step highlighted with cyan border. `position: sticky; top: 80px`. Internal scroll when the list exceeds viewport. Auto-scrolls the active item into view as the user scrolls the transcript. Click any rail item to jump to that step's anchor.
+- **Tool sequence chain** — chip-arrow visualization above the transcript: `read_file → shell → edit_file → shell`.
+- **Transcript** — every step rendered in full as an `<article id="step-N">` so `#step-N` anchors deep-link. Each step has a left gutter (numbered + role-colored dot + vertical connector line), role tag, tool name, args grid (key/value rows), output `<pre>` block. Tool results with `is_error: true` get red border + red output text. Errors counted in metadata grid (red-tinted when > 0).
+- **Foot** — back-to-traces link + API line (`GET /api/traces/<id>`).
+
+**Wiring:** `/traces` row clicks now navigate to `trace-detail.html?id=<id>` instead of being inert. The page also handles missing trace IDs (404 empty state) and falls back to placeholder steps for any trace in the corpus that doesn't have hand-written `TRACE_STEPS` content (most of the corpus — only 4 traces have full transcripts).
+
+**Screenshots in `/screenshots/`:**
+- `02-trace-detail-01-short.png` — short trace (rate-limit Run 1, 9 steps): full rail visible alongside transcript.
+- `02-trace-detail-02-long-rail.png` — long trace (auth-migration v1.3 Run 2, 22 steps, regressed): rail scrolled internally to show steps 4–13 while transcript shows steps 1–4. Demonstrates the rail's internal scroll behavior; the rail's sticky-at-top-80px positioning was verified live via DOM inspection (`html-to-image` screenshots flatten sticky into its DOM position, so deep-scroll captures don't show the rail visually, but it's pinned in the live browser).
+
+## User
+
+Verifier agent check completed
+
+## Assistant
+
+_[tool: snip]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+The iframe doesn't fire scroll events on programmatic scrollTo. Let me switch to IntersectionObserver (browser-native, doesn't depend on scroll events):
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+The iframe pauses rAF, scroll, and IO. Real browsers don't. Adding `setInterval` polling as a final fallback that works everywhere:
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+_[tool: eval_js]_
+
+Works correctly — scrolled near the bottom, active step is 22 (the final step). The fix uses three independent mechanisms (scroll listener, IntersectionObserver, setInterval polling) so it handles any environment that supports at least one. In a real browser scroll/IO fire instantly; in throttled iframes the interval catches up.
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+Fixed the active-step tracker. Root cause: this preview iframe pauses `scroll` events, `IntersectionObserver` callbacks, AND `requestAnimationFrame` on programmatic scroll — all three of my previous attempts depended on at least one of those firing. The new implementation runs **all three plus a `setInterval` poll** so at least one path catches every scroll, regardless of environment. Real browsers will use the scroll listener (instant); throttled iframes fall back to the 60ms interval (still fast enough to feel live).
+
+Verified live: scrollY=2400 → active=11, scrollY=4500 → active=22, both with the rail highlight and "step N in view" header staying in sync.
+
+## User
+
+Verifier agent check completed
+
+## Assistant
+
+_[tool: snip]_
+
+Verified. The trace detail page is shipped with the active-step rail working correctly across browser environments.
+

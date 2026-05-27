@@ -1,0 +1,394 @@
+/* trace-detail.css */
+
+/* ───── Hero ───── */
+.td-hero { padding: 32px 0 28px; }
+
+.td-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: start;
+  margin: 16px 0 24px;
+}
+.td-hero-name {
+  font-size: 13px;
+  color: var(--fg);
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.td-hero-title {
+  font-size: 36px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 18px;
+  max-width: 720px;
+  font-weight: 500;
+}
+
+.td-keydecision {
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-left: 3px solid var(--accent);
+  max-width: 720px;
+}
+.td-keydecision p {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.td-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+}
+
+/* metadata grid */
+.td-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.td-meta {
+  background: var(--surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.td-meta > span:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.td-meta-val {
+  font-size: 14px;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-meta-link { transition: color .12s; }
+.td-meta-link:hover { color: var(--accent); }
+
+/* ───── Body layout ───── */
+.td-body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 32px;
+  padding-top: 32px;
+  /* no align-items: stretch (default) so .td-rail spans full row height
+     and position: sticky on .td-rail-inner has room to stick */
+}
+
+/* ───── Sticky step list rail ───── */
+.td-rail { position: relative; }
+.td-rail-inner {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 8px;
+  scrollbar-width: thin;
+}
+
+.td-rail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.td-rail-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.td-rail-step {
+  display: grid;
+  grid-template-columns: 22px 6px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: all .1s;
+}
+.td-rail-step:hover { background: var(--bg-2); color: var(--fg-2); }
+.td-rail-step.active {
+  background: var(--accent-faint);
+  color: var(--fg);
+  border-left-color: var(--accent);
+}
+.td-rail-step-idx {
+  font-size: 10px;
+  color: var(--dim);
+}
+.td-rail-step.active .td-rail-step-idx { color: var(--accent); }
+
+.td-rail-step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.td-rail-step-dot.role-user        { background: var(--accent); }
+.td-rail-step-dot.role-assistant   { background: var(--fg); }
+.td-rail-step-dot.role-tool_call   { background: var(--novel); }
+.td-rail-step-dot.role-tool_result { background: var(--ok); }
+
+.td-rail-step-summary {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───── Transcript ───── */
+.td-transcript {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.td-toolseq {
+  padding: 14px 18px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.td-toolseq-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.td-toolseq-chip {
+  padding: 3px 9px;
+  font-size: 11.5px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 5px;
+  color: var(--fg-2);
+}
+.td-toolseq-arrow { color: var(--dim); font-size: 11px; }
+
+.td-transcript-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.td-steps {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ───── Single transcript step ───── */
+.td-step {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 80px;
+}
+.td-step:last-child { border-bottom: none; }
+
+.td-step-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 3px;
+  position: relative;
+}
+.td-step-num {
+  font-size: 11px;
+  color: var(--dim);
+  font-feature-settings: "tnum";
+}
+.td-step:target .td-step-num { color: var(--accent); }
+.td-step-rail-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--muted);
+}
+.td-step-rail-mark.role-user        { background: var(--accent); border-color: var(--accent); }
+.td-step-rail-mark.role-assistant   { background: var(--fg); border-color: var(--fg); }
+.td-step-rail-mark.role-tool_call   { background: var(--novel); border-color: var(--novel); }
+.td-step-rail-mark.role-tool_result { background: var(--ok); border-color: var(--ok); }
+
+/* vertical line connecting gutter dots */
+.td-step-gutter::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  bottom: -28px;
+  left: 50%;
+  margin-left: -0.5px;
+  width: 1px;
+  background: var(--border);
+}
+.td-step:last-child .td-step-gutter::after { display: none; }
+
+.td-step-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.td-step-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.td-role-tag {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.td-role-tag.role-user        { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: var(--accent-faint); }
+.td-role-tag.role-assistant   { color: var(--fg); border-color: var(--border-hi); background: var(--bg); }
+.td-role-tag.role-tool_call   { color: var(--novel); border-color: color-mix(in srgb, var(--novel) 30%, transparent); background: var(--novel-faint); }
+.td-role-tag.role-tool_result { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, transparent); background: var(--ok-faint); }
+
+.td-toolname {
+  font-size: 13px;
+  color: var(--fg);
+}
+.td-step-anchor {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--faint);
+  text-decoration: none;
+}
+.td-step:hover .td-step-anchor { color: var(--accent); }
+
+.td-step-content {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.td-step.role-user .td-step-content { color: var(--fg); font-weight: 400; }
+
+.td-args {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.td-args-head {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.td-arg {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  border-top: 1px solid var(--border);
+}
+.td-arg:first-of-type { border-top: none; padding-top: 0; }
+.td-arg-val { color: var(--fg-2); word-break: break-word; line-height: 1.45; }
+
+.td-output {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.td-output.error {
+  border-color: color-mix(in srgb, var(--bad) 25%, transparent);
+  background: color-mix(in srgb, var(--bad) 5%, var(--bg));
+}
+.td-output-head {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  background: var(--bg-2);
+  display: flex;
+  gap: 8px;
+}
+.td-output pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--fg-2);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.td-output.error pre { color: var(--bad); }
+
+.td-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* ───── responsive ───── */
+@media (max-width: 1080px) {
+  .td-meta-grid { grid-template-columns: repeat(4, 1fr); }
+  .td-hero-grid { grid-template-columns: 1fr; gap: 18px; }
+  .td-hero-actions { flex-direction: row; }
+}
+@media (max-width: 900px) {
+  .td-body { grid-template-columns: 1fr; gap: 18px; }
+  .td-rail { order: -1; }
+  .td-rail-inner { position: static; max-height: 280px; }
+}
+@media (max-width: 720px) {
+  .td-meta-grid { grid-template-columns: repeat(2, 1fr); }
+  .td-step { grid-template-columns: 36px 1fr; }
+}

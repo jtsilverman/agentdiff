@@ -161,6 +161,46 @@ describe('BaselineDetailPage', () => {
     });
   });
 
+  it('renders the task statement from the first trace metadata as the h1 title', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      const heading = screen.getByRole('heading', {
+        level: 1,
+        name: /Rename the \/users endpoint/i,
+      });
+      expect(heading).toBeInTheDocument();
+    });
+  });
+
+  it('renders side stats with the run count derived from cluster members + noise', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    const { container } = render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      // 2 members + 1 noise trace = 3 runs in the fixture.
+      expect(container.querySelector('.bl-stat')).not.toBeNull();
+    });
+    const stats = container.querySelectorAll('.bl-stat-val');
+    const statValues = Array.from(stats).map((el) => el.textContent);
+    expect(statValues).toContain('3');
+  });
+
+  it('renders trace rows with outcome metadata badges', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    const { container } = render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.tl-table')).not.toBeNull();
+    });
+    const rows = container.querySelectorAll('.tl-row-button');
+    expect(rows.length).toBe(3); // 2 strategy members + 1 noise trace
+    // Each outcome appears in both a filter chip and a row badge.
+    expect(screen.getAllByText(/^variance$/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/^regressed$/i).length).toBeGreaterThanOrEqual(2);
+  });
+
   it('clicking a trace from the list calls getOverlay and applies overlay state', async () => {
     mockedGetCluster.mockResolvedValue(mockStrategyReport);
     const { container } = render(<BaselineDetailPage />);

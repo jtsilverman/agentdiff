@@ -46,6 +46,8 @@ export interface BaselineSummary {
 export interface TraceRef {
   id: string;
   name: string;
+  step_count?: number;
+  metadata?: Record<string, string>;
 }
 
 export interface StrategyReport {

@@ -57,15 +57,37 @@ export const mockStrategyReport: StrategyReport = {
     {
       id: 0,
       count: 7,
-      exemplar: { id: 't1', name: 'trace-1' },
+      exemplar: {
+        id: 't1',
+        name: 'trace-1',
+        step_count: 9,
+        metadata: { task: 'Rename the /users endpoint', outcome: 'variance' },
+      },
       tool_sequence: ['read_file', 'write_file'],
       members: [
-        { id: 't1', name: 'trace-1' },
-        { id: 't2', name: 'trace-2' },
+        {
+          id: 't1',
+          name: 'trace-1',
+          step_count: 9,
+          metadata: { task: 'Rename the /users endpoint', outcome: 'variance' },
+        },
+        {
+          id: 't2',
+          name: 'trace-2',
+          step_count: 11,
+          metadata: { task: 'Rename the /users endpoint', outcome: 'variance' },
+        },
       ],
     },
   ],
-  noise: [{ id: 'to1', name: 'trace-outlier' }],
+  noise: [
+    {
+      id: 'to1',
+      name: 'trace-outlier',
+      step_count: 14,
+      metadata: { task: 'Rename the /users endpoint', outcome: 'regressed' },
+    },
+  ],
   epsilon: 0.3,
 };
 

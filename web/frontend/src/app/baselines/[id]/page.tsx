@@ -21,6 +21,8 @@ import PathGraph, { type PathGraphMode } from '@/components/PathGraph';
 import StrategyCluster from '@/components/StrategyCluster';
 import DriftBadge from '@/components/DriftBadge';
 import TriagePanel from '@/components/TriagePanel';
+import BaselineHeader from '@/components/baseline/BaselineHeader';
+import TraceList from '@/components/baseline/TraceList';
 
 export default function BaselineDetailPage() {
   const params = useParams<{ id: string }>();
@@ -105,11 +107,20 @@ export default function BaselineDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {description && (
-        <Card>
-          <Text>{description}</Text>
-        </Card>
-      )}
+      <BaselineHeader
+        baselineId={baselineId}
+        baselineName={report.baseline_name}
+        description={description}
+        traces={traceRefs}
+        strategiesCount={report.strategies.length}
+      />
+
+      <TraceList
+        traces={traceRefs}
+        selectedTraceId={selectedTraceId}
+        onSelect={handleTraceSelect}
+      />
+
       <Card>
         <Title>Path graph</Title>
         <Text className="mt-1">
@@ -159,35 +170,6 @@ export default function BaselineDetailPage() {
         if (!selectedTraceId || !exemplar || selectedTraceId === exemplar.id) return null;
         return <TriagePanel idA={exemplar.id} idB={selectedTraceId} />;
       })()}
-
-      <Card>
-        <Title>Traces in this baseline</Title>
-        <Text className="mt-1">
-          Click a trace to overlay its path on the graph above.
-        </Text>
-        {traceRefs.length === 0 ? (
-          <Text className="mt-3">No traces in this baseline.</Text>
-        ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {traceRefs.map((ref) => {
-              const selected = ref.id === selectedTraceId;
-              return (
-                <button
-                  key={ref.id}
-                  onClick={() => handleTraceSelect(ref.id)}
-                  className={`rounded px-3 py-1 text-sm transition-colors ${
-                    selected
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-100 hover:bg-gray-700'
-                  }`}
-                >
-                  {ref.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </Card>
 
       <Card>
         <Title>Strategies</Title>

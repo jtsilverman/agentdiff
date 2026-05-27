@@ -16,9 +16,13 @@ import (
 // can display the name on buttons but call downstream endpoints with the
 // UUID. Trace names contain '/' (e.g. "seed-tool-order-stable/run-1") which
 // breaks chi path routing when used as a URL segment.
+// step_count + metadata are additive surfaces so baseline detail can render
+// per-trace badges without a second listTraces fetch.
 type traceRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	StepCount int               `json:"step_count,omitempty"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 type webStrategy struct {
@@ -120,12 +124,21 @@ func GetCluster(database *db.DB) http.HandlerFunc {
 			return
 		}
 
-		nameToID := make(map[string]string, len(traces))
+		traceByName := make(map[string]db.TraceDetail, len(traces))
 		for _, t := range traces {
-			nameToID[t.Name] = t.ID
+			traceByName[t.Name] = t
 		}
 		toRef := func(name string) traceRef {
-			return traceRef{ID: nameToID[name], Name: name}
+			t, ok := traceByName[name]
+			if !ok {
+				return traceRef{Name: name}
+			}
+			return traceRef{
+				ID:        t.ID,
+				Name:      name,
+				StepCount: len(t.Steps),
+				Metadata:  t.Metadata,
+			}
 		}
 
 		webReport := webStrategyReport{

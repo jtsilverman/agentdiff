@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight } from '../Icons';
+import OutcomeBadge, { type OutcomeKind } from '../OutcomeBadge';
 import { NovelGraph, RegressionGraph, VarianceGraph } from './Graphs';
 import type { BaselineSummary } from '@/lib/types';
-
-type OutcomeKind = 'warn' | 'bad' | 'novel';
 
 interface Example {
   slug: string;
@@ -76,15 +75,6 @@ function resolveBaseline(
 function resolveHref(example: Example, index: number, baselines: BaselineSummary[]): string {
   const target = resolveBaseline(example, index, baselines);
   return target ? `/baselines/${target.id}` : '#';
-}
-
-function OutcomeBadge({ kind, label }: { kind: OutcomeKind; label: string }) {
-  return (
-    <span className={`ad-badge ${kind}`}>
-      <span className="dot" />
-      {label}
-    </span>
-  );
 }
 
 function ExampleCard({

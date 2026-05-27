@@ -301,9 +301,54 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 4 — Baseline detail visual shell.
+Chunk 5 — Baseline path graph card.
 
 ## Completed chunks
+
+- **Chunk 4: Baseline detail visual shell** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Added a header + trace-list shell above the existing Tremor path-graph
+  / strategies / compare cards (5 + 6 redesign those). Backend additive
+  on `traceRef` in `web/api/handlers/cluster.go`: `step_count` +
+  `metadata` fields populated from `database.GetBaselineTraces` so
+  baseline detail can render per-row badges without a second
+  `listTraces` fetch (extends chunk 2's additive-field precedent;
+  no breaking changes, no new endpoints). Frontend
+  `TraceRef` mirrored with `step_count?: number` and
+  `metadata?: Record<string,string>`. Extracted shared `OutcomeBadge`
+  (`web/frontend/src/components/OutcomeBadge.tsx`, `kind`: ok / warn /
+  bad / novel / neutral / accent) from the inline copy in
+  `home/Examples.tsx`; Examples now imports the shared one. New
+  `components/baseline/BaselineHeader.tsx` (breadcrumb, badges row,
+  H1 task title pulled from `traces[0].metadata.task`, callout body =
+  `description` from chunk 3, side stats: runs / avg steps /
+  strategies / drift derived from per-trace outcomes); new
+  `components/baseline/TraceList.tsx` (filter chips:
+  all/succeeded/variance/regressed/additive; sort: run order / steps /
+  outcome; row click toggles overlay via parent `onSelect`; per-row
+  outcome badge + steps + `MetadataBadges`). Dropped the Tremor
+  "Traces in this baseline" card; `TraceList` owns trace selection +
+  overlay trigger now. Appended ~190 lines of baseline-scoped CSS
+  (`.bl-*`, `.tl-*`, `.seg`, `.select`, responsive breakpoints) to
+  `web/frontend/src/app/globals.css`. Tests:
+  - Extended `mockStrategyReport` fixture with `step_count` +
+    `metadata` on members and noise.
+  - Added 3 vitest assertions to `baseline-detail.test.tsx`: H1 from
+    first trace's metadata.task; side stats render with run count = 3
+    (2 strategy members + 1 noise); 3 `.tl-row-button` rows render
+    with variance + regressed outcome badges. Existing overlay-click
+    test continues to pass against the new TraceList (rows are
+    `<button>` so `findByRole('button', { name: /trace-1/ })` resolves
+    to a single match).
+  Full vitest 144/144 green; pre-existing `Nav.test.tsx` failure
+  unchanged. `tsc --noEmit` clean. `go test ./web/api/...` all green.
+  Key decision text per row deferred (would require N transcript
+  fetches per page load; acceptance "outcome/steps/key-decision badges
+  via MetadataBadges" satisfied via outcome + steps; key decision can
+  land in a later chunk or chunk 6 when modals are introduced).
+  REFACTOR scan: removed inline OutcomeBadge in Examples.tsx (extracted),
+  removed the Tremor traces card (replaced by TraceList), replaced
+  the `nameToID` map in `cluster.go` with the richer `traceByName`
+  (old code deleted).
 
 - **Chunk 3: Seed-data UI surfacing** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Added `description?: string` to `BaselineSummary` in

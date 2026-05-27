@@ -57,12 +57,15 @@ export const mockStrategyReport: StrategyReport = {
     {
       id: 0,
       count: 7,
-      exemplar: 'trace-1',
+      exemplar: { id: 't1', name: 'trace-1' },
       tool_sequence: ['read_file', 'write_file'],
-      members: ['trace-1', 'trace-2'],
+      members: [
+        { id: 't1', name: 'trace-1' },
+        { id: 't2', name: 'trace-2' },
+      ],
     },
   ],
-  noise: ['trace-outlier'],
+  noise: [{ id: 'to1', name: 'trace-outlier' }],
   epsilon: 0.3,
 };
 

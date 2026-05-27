@@ -32,7 +32,7 @@ export default function StrategyCluster({ report }: { report: StrategyReport }) 
               <Text>{strategy.count} members</Text>
             </div>
             <Text className="mt-2">
-              Exemplar: <span className="font-mono">{strategy.exemplar}</span>
+              Exemplar: <span className="font-mono">{strategy.exemplar.name}</span>
             </Text>
             <div className="mt-3 flex flex-wrap gap-1">
               {strategy.tool_sequence.map((tool, i) => (
@@ -75,9 +75,9 @@ export default function StrategyCluster({ report }: { report: StrategyReport }) 
         <Card className="border-gray-700 bg-gray-900">
           <Title className="text-gray-400">Noise Traces</Title>
           <div className="mt-2 flex flex-col gap-1">
-            {report.noise.map((name) => (
-              <Text key={name} className="font-mono text-gray-500">
-                {name}
+            {report.noise.map((ref) => (
+              <Text key={ref.id} className="font-mono text-gray-500">
+                {ref.name}
               </Text>
             ))}
           </div>

@@ -12,6 +12,32 @@ import (
 	"github.com/jtsilverman/agentdiff/web/api/db"
 )
 
+// traceRef pairs a trace UUID with its human-readable name so the frontend
+// can display the name on buttons but call downstream endpoints with the
+// UUID. Trace names contain '/' (e.g. "seed-tool-order-stable/run-1") which
+// breaks chi path routing when used as a URL segment.
+type traceRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type webStrategy struct {
+	ID              int                       `json:"id"`
+	Count           int                       `json:"count"`
+	Exemplar        traceRef                  `json:"exemplar"`
+	ToolSeq         []string                  `json:"tool_sequence"`
+	Members         []traceRef                `json:"members"`
+	MetadataSummary map[string]map[string]int `json:"metadata_summary,omitempty"`
+}
+
+type webStrategyReport struct {
+	BaselineName  string        `json:"baseline_name"`
+	SnapshotCount int           `json:"snapshot_count"`
+	Strategies    []webStrategy `json:"strategies"`
+	Noise         []traceRef    `json:"noise"`
+	Epsilon       float64       `json:"epsilon"`
+}
+
 // toSnapshotBaseline converts DB trace details into a snapshot.Baseline for clustering.
 func toSnapshotBaseline(name string, traces []db.TraceDetail) snapshot.Baseline {
 	snaps := make([]snapshot.Snapshot, len(traces))
@@ -94,7 +120,40 @@ func GetCluster(database *db.DB) http.HandlerFunc {
 			return
 		}
 
+		nameToID := make(map[string]string, len(traces))
+		for _, t := range traces {
+			nameToID[t.Name] = t.ID
+		}
+		toRef := func(name string) traceRef {
+			return traceRef{ID: nameToID[name], Name: name}
+		}
+
+		webReport := webStrategyReport{
+			BaselineName:  report.BaselineName,
+			SnapshotCount: report.SnapshotCount,
+			Strategies:    make([]webStrategy, len(report.Strategies)),
+			Noise:         make([]traceRef, len(report.Noise)),
+			Epsilon:       report.Epsilon,
+		}
+		for i, s := range report.Strategies {
+			members := make([]traceRef, len(s.Members))
+			for j, m := range s.Members {
+				members[j] = toRef(m)
+			}
+			webReport.Strategies[i] = webStrategy{
+				ID:              s.ID,
+				Count:           s.Count,
+				Exemplar:        toRef(s.Exemplar),
+				ToolSeq:         s.ToolSeq,
+				Members:         members,
+				MetadataSummary: s.MetadataSummary,
+			}
+		}
+		for i, n := range report.Noise {
+			webReport.Noise[i] = toRef(n)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(report)
+		json.NewEncoder(w).Encode(webReport)
 	}
 }

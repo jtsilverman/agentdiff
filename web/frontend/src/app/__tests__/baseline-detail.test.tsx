@@ -201,6 +201,29 @@ describe('BaselineDetailPage', () => {
     expect(screen.getAllByText(/^regressed$/i).length).toBeGreaterThanOrEqual(2);
   });
 
+  it('renders the path-graph card legend with the three rule rows', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/edge thickness = run count/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/node size = call frequency/i)).toBeInTheDocument();
+    expect(screen.getByText(/color = outcome cluster/i)).toBeInTheDocument();
+  });
+
+  it('renders cluster dots derived from strategies + noise in the legend', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    const { container } = render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.pg-legend-clusters')).not.toBeNull();
+    });
+    const dots = container.querySelectorAll('.pg-cluster-dot');
+    // 1 strategy + 1 noise bucket = 2 clusters.
+    expect(dots.length).toBe(2);
+  });
+
   it('clicking a trace from the list calls getOverlay and applies overlay state', async () => {
     mockedGetCluster.mockResolvedValue(mockStrategyReport);
     const { container } = render(<BaselineDetailPage />);

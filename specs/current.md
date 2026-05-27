@@ -301,9 +301,40 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 5 — Baseline path graph card.
+Chunk 6 — Money-feature action row + modals.
 
 ## Completed chunks
+
+- **Chunk 5: Baseline path graph card** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Replaced the Tremor `<Card><Title>Path graph</Title>...` block on
+  `baselines/[id]/page.tsx` with a new
+  `components/baseline/BaselinePathGraphCard.tsx`. The card wraps the
+  existing React Flow `PathGraph` in `pg-container` (rounded surface
+  border) and renders a `pg-legend` block below it with three rule
+  rows ("edge thickness = run count", "node size = call frequency",
+  "color = outcome cluster") and per-strategy cluster dots derived
+  from `report.strategies` + `report.noise` (each cluster's dot color
+  comes from its dominant outcome via the same kind mapping
+  `TraceList` uses; noise renders neutral). The overlay/heatmap mode
+  toggle moved into the `bl-section-head` controls as a `.seg`
+  segmented control matching the trace-list filter chrome; old inline
+  blue Tailwind buttons removed. Stats row ("X runs · Y branch points
+  · overlay: Z") + overlay error moved to a `.bl-stats-row` below the
+  legend. Appended ~75 lines of CSS to `globals.css` (`.pg-container`,
+  `.pg-legend`, `.pg-legend-rules`, `.pg-rule-thick/size/color`,
+  `.pg-legend-clusters`, `.pg-cluster`, `.pg-cluster-dot`,
+  `.bl-stats-row`); the color-rule swatch uses
+  `linear-gradient(--ok, --accent, --novel)` to match the existing
+  outcome palette. Tests: added 2 vitest assertions to
+  `baseline-detail.test.tsx` — three legend rule rows render,
+  `.pg-cluster-dot` count = 2 (1 strategy + 1 noise). Full vitest
+  146/146 green; pre-existing `Nav.test.tsx` transform failure
+  unchanged. `tsc --noEmit` clean. REFACTOR scan: removed inline
+  Card/Title/Text path-graph block (replaced by
+  `BaselinePathGraphCard`), removed `PathGraph` default-import from
+  page.tsx (only the `PathGraphMode` type is needed there now).
+  `Card`/`Title`/`Text` from `@tremor/react` still imported for
+  Strategies + Compare Trace blocks (chunk 6 redesigns those).
 
 - **Chunk 4: Baseline detail visual shell** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Added a header + trace-list shell above the existing Tremor path-graph

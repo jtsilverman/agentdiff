@@ -17,12 +17,13 @@ import type {
   OverlayResult,
   TraceRef,
 } from '@/lib/types';
-import PathGraph, { type PathGraphMode } from '@/components/PathGraph';
+import { type PathGraphMode } from '@/components/PathGraph';
 import StrategyCluster from '@/components/StrategyCluster';
 import DriftBadge from '@/components/DriftBadge';
 import TriagePanel from '@/components/TriagePanel';
 import BaselineHeader from '@/components/baseline/BaselineHeader';
 import TraceList from '@/components/baseline/TraceList';
+import BaselinePathGraphCard from '@/components/baseline/BaselinePathGraphCard';
 
 export default function BaselineDetailPage() {
   const params = useParams<{ id: string }>();
@@ -121,49 +122,15 @@ export default function BaselineDetailPage() {
         onSelect={handleTraceSelect}
       />
 
-      <Card>
-        <Title>Path graph</Title>
-        <Text className="mt-1">
-          {graph.stats.total_runs} runs, {graph.stats.branch_points} branch points.
-          {selectedTraceId && ` Overlay: ${selectedTraceId}.`}
-        </Text>
-        <div className="mt-3 flex gap-2">
-          {(
-            [
-              { value: 'overlay', label: 'Overlay' },
-              { value: 'heatmap-cost', label: 'Heatmap: cost' },
-              { value: 'heatmap-latency', label: 'Heatmap: latency' },
-            ] as const
-          ).map((opt) => {
-            const active = graphMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setGraphMode(opt.value)}
-                className={`rounded px-3 py-1 text-xs transition-colors ${
-                  active
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-100 hover:bg-gray-700'
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-4">
-          <PathGraph
-            graph={graph}
-            overlay={graphMode === 'overlay' ? overlay ?? undefined : undefined}
-            mode={graphMode}
-          />
-        </div>
-        {overlayError && (
-          <Text color="red" className="mt-2">
-            Overlay error: {overlayError}
-          </Text>
-        )}
-      </Card>
+      <BaselinePathGraphCard
+        graph={graph}
+        overlay={overlay}
+        overlayError={overlayError}
+        mode={graphMode}
+        onModeChange={setGraphMode}
+        selectedTraceId={selectedTraceId}
+        report={report}
+      />
 
       {(() => {
         const exemplar = report.strategies[0]?.exemplar;

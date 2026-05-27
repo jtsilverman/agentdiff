@@ -9,6 +9,19 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// Polyfill IntersectionObserver (about page tour-rail uses it)
+globalThis.IntersectionObserver = class IntersectionObserver {
+  root = null;
+  rootMargin = '';
+  thresholds = [];
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+} as unknown as typeof IntersectionObserver;
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

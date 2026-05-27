@@ -7,6 +7,7 @@ import {
   mockPathGraph,
   mockOverlay,
 } from '@/test/mocks/fixtures';
+import type { BaselineSummary } from '@/lib/types';
 
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => (
@@ -21,6 +22,7 @@ import {
   compareTrace,
   getGraph,
   getOverlay,
+  listBaselines,
 } from '@/lib/api';
 import BaselineDetailPage from '../baselines/[id]/page';
 
@@ -28,6 +30,15 @@ const mockedGetCluster = vi.mocked(getCluster);
 const mockedCompareTrace = vi.mocked(compareTrace);
 const mockedGetGraph = vi.mocked(getGraph);
 const mockedGetOverlay = vi.mocked(getOverlay);
+const mockedListBaselines = vi.mocked(listBaselines);
+
+const baselineWithDescription: BaselineSummary = {
+  id: 'bl-1',
+  name: 'seed-api-endpoint-rename',
+  description: 'Rename the /users endpoint to /customers across the codebase.',
+  trace_count: 5,
+  created_at: '2026-01-01T00:00:00Z',
+};
 
 describe('BaselineDetailPage', () => {
   beforeEach(() => {
@@ -35,6 +46,7 @@ describe('BaselineDetailPage', () => {
     mockUseParams.mockReturnValue({ id: 'bl-1' });
     mockedGetGraph.mockResolvedValue(mockPathGraph);
     mockedGetOverlay.mockResolvedValue(mockOverlay);
+    mockedListBaselines.mockResolvedValue([baselineWithDescription]);
   });
 
   it('shows loading, then renders StrategyCluster with report data', async () => {
@@ -135,6 +147,17 @@ describe('BaselineDetailPage', () => {
       expect(
         container.querySelector('[data-heatmap-bucket="hot"]'),
       ).not.toBeNull();
+    });
+  });
+
+  it('renders the baseline description as a callout when listBaselines returns it', async () => {
+    mockedGetCluster.mockResolvedValue(mockStrategyReport);
+    render(<BaselineDetailPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Rename the \/users endpoint to \/customers/i),
+      ).toBeInTheDocument();
     });
   });
 

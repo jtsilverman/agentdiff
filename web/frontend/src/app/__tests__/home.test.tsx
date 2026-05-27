@@ -47,9 +47,9 @@ describe('HomePage', () => {
 
   it('links cards to matching baselines by name hint', async () => {
     mockedListBaselines.mockResolvedValue([
-      { id: 'seed-variance', name: 'seed-tool-order-variance', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
-      { id: 'seed-regression', name: 'seed-prompt-regression', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
-      { id: 'seed-novel', name: 'seed-novel-tool-discovery', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-variance', name: 'seed-api-endpoint-rename', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-regression', name: 'seed-auth-migration-md5-to-bcrypt', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'seed-novel', name: 'seed-new-endpoint-with-tests', trace_count: 5, created_at: '2026-01-01T00:00:00Z' },
     ]);
     render(<HomePage />);
     await waitFor(() => {
@@ -60,6 +60,24 @@ describe('HomePage', () => {
     expect(regressionCard).toHaveAttribute('href', '/baselines/seed-regression');
     const novelCard = screen.getByText(/Build a weekly report/i).closest('a');
     expect(novelCard).toHaveAttribute('href', '/baselines/seed-novel');
+  });
+
+  it('uses baseline description as card hook when API returns a match', async () => {
+    mockedListBaselines.mockResolvedValue([
+      {
+        id: 'seed-variance',
+        name: 'seed-api-endpoint-rename',
+        description: 'Rename the /users endpoint to /customers across the codebase. Five agents pick three different strategies — all valid, none regressed.',
+        trace_count: 5,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    render(<HomePage />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Rename the \/users endpoint to \/customers/i),
+      ).toBeInTheDocument();
+    });
   });
 
   it('falls back to positional baselines when name hints do not match', async () => {

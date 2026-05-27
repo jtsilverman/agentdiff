@@ -34,7 +34,7 @@ const EXAMPLES: Example[] = [
     steps: '11.2',
     duration: '~38s/run',
     Graph: VarianceGraph,
-    matchHint: 'variance',
+    matchHint: 'api-endpoint-rename',
   },
   {
     slug: 'regression',
@@ -46,7 +46,7 @@ const EXAMPLES: Example[] = [
     steps: '17.5',
     duration: '~1m12s/run',
     Graph: RegressionGraph,
-    matchHint: 'regression',
+    matchHint: 'auth-migration',
   },
   {
     slug: 'novel',
@@ -58,16 +58,23 @@ const EXAMPLES: Example[] = [
     steps: '23.4',
     duration: '~2m04s/run',
     Graph: NovelGraph,
-    matchHint: 'novel',
+    matchHint: 'new-endpoint-with-tests',
   },
 ];
 
-function resolveHref(example: Example, index: number, baselines: BaselineSummary[]): string {
+function resolveBaseline(
+  example: Example,
+  index: number,
+  baselines: BaselineSummary[],
+): BaselineSummary | undefined {
   const matched = baselines.find((b) =>
     b.name.toLowerCase().includes(example.matchHint),
   );
-  const fallback = baselines[index];
-  const target = matched ?? fallback;
+  return matched ?? baselines[index];
+}
+
+function resolveHref(example: Example, index: number, baselines: BaselineSummary[]): string {
+  const target = resolveBaseline(example, index, baselines);
   return target ? `/baselines/${target.id}` : '#';
 }
 
@@ -83,9 +90,11 @@ function OutcomeBadge({ kind, label }: { kind: OutcomeKind; label: string }) {
 function ExampleCard({
   example,
   href,
+  hook,
 }: {
   example: Example;
   href: string;
+  hook: string;
 }) {
   const { Graph } = example;
   return (
@@ -103,7 +112,7 @@ function ExampleCard({
 
       <div className="ad-ex-card-body">
         <h3 className="ad-ex-card-title">{example.task}</h3>
-        <p className="ad-ex-card-hook">{example.hook}</p>
+        <p className="ad-ex-card-hook">{hook}</p>
         <div className="ad-ex-card-meta">
           <span>{example.runs} runs</span>
           <span className="ad-dim">·</span>
@@ -141,13 +150,19 @@ export default function Examples({ baselines }: { baselines: BaselineSummary[] }
         </div>
 
         <div className="ad-ex-grid">
-          {EXAMPLES.map((example, i) => (
-            <ExampleCard
-              key={example.slug}
-              example={example}
-              href={resolveHref(example, i, baselines)}
-            />
-          ))}
+          {EXAMPLES.map((example, i) => {
+            const target = resolveBaseline(example, i, baselines);
+            const href = target ? `/baselines/${target.id}` : '#';
+            const hook = target?.description?.trim() || example.hook;
+            return (
+              <ExampleCard
+                key={example.slug}
+                example={example}
+                href={href}
+                hook={hook}
+              />
+            );
+          })}
         </div>
 
         <Link href="/about" className="ad-examples-foot">

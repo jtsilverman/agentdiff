@@ -38,6 +38,7 @@ export interface ToolResult {
 export interface BaselineSummary {
   id: string;
   name: string;
+  description?: string;
   trace_count: number;
   created_at: string;
 }

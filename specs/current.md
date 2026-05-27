@@ -301,9 +301,39 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 3 — Seed-data UI surfacing.
+Chunk 4 — Baseline detail visual shell.
 
 ## Completed chunks
+
+- **Chunk 3: Seed-data UI surfacing** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Added `description?: string` to `BaselineSummary` in
+  `web/frontend/src/lib/types.ts`. Updated `matchHint` substrings in
+  `web/frontend/src/components/home/Examples.tsx` to the new seed
+  baseline names (`api-endpoint-rename` / `auth-migration` /
+  `new-endpoint-with-tests`); split `resolveHref` into
+  `resolveBaseline` + `resolveHref` (the latter still exported for
+  `page.tsx`'s `firstBaselineHref`); `ExampleCard` now takes a `hook`
+  prop and the grid resolves it from the matched baseline's
+  `description` (falls back to the hardcoded `example.hook` when no
+  baseline match or empty description). Baseline detail
+  (`web/frontend/src/app/baselines/[id]/page.tsx`) now calls
+  `listBaselines()` alongside the cluster + graph fetches, finds the
+  baseline by id, and renders its `description` as a minimal Tremor
+  `<Card><Text>` callout above the path-graph card (no Title — would
+  collide with `StrategyCluster`'s `baseline_name` Title). Tests:
+  added "uses baseline description as card hook when API returns a
+  match" to `home.test.tsx`; added "renders the baseline description
+  as a callout when listBaselines returns it" to
+  `baseline-detail.test.tsx`, plus a shared `listBaselines` mock in
+  `beforeEach`. Updated the existing "links cards to matching
+  baselines by name hint" test to use the new seed baseline names.
+  Per-trace `task` / `outcome` surfacing deferred to Chunk 4 (already
+  covered by Chunk 4's acceptance: "trace rows showing
+  outcome/steps/key-decision badges via `MetadataBadges`"). Full
+  vitest 141/141 green (pre-existing `Nav.test.tsx` failure
+  documented in Open questions, untouched). `tsc --noEmit` clean.
+  `go test ./web/api/...` all green (no backend changes). REFACTOR
+  scan: no dead code obsoleted by the chunk.
 
 - **Chunk 0: Home page redesign** — Shipped 2026-05-27 in commit
   `7b7b43d feat(home): redesign landing page with Geist + dark theme`.

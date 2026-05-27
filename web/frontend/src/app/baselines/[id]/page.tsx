@@ -8,6 +8,7 @@ import {
   getGraph,
   getOverlay,
   compareTrace,
+  listBaselines,
 } from '@/lib/api';
 import type {
   StrategyReport,
@@ -27,6 +28,7 @@ export default function BaselineDetailPage() {
 
   const [report, setReport] = useState<StrategyReport | null>(null);
   const [graph, setGraph] = useState<PathGraphData | null>(null);
+  const [description, setDescription] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +47,12 @@ export default function BaselineDetailPage() {
     Promise.all([
       getCluster(baselineId).then(setReport),
       getGraph(baselineId).then(setGraph),
+      listBaselines()
+        .then((list) => {
+          const match = list.find((b) => b.id === baselineId);
+          setDescription(match?.description?.trim() ?? null);
+        })
+        .catch(() => setDescription(null)),
     ])
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -97,6 +105,11 @@ export default function BaselineDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {description && (
+        <Card>
+          <Text>{description}</Text>
+        </Card>
+      )}
       <Card>
         <Title>Path graph</Title>
         <Text className="mt-1">

@@ -223,10 +223,7 @@ results back into `_design/project/`. The Next.js port chunks
 
 **Chunk 1: /about page** ✓ shipped 2026-05-27.
 
-**Chunk 2: Seed-data rewrite — backend** — rewrite `scenarios()` in `web/api/seed/seed.go` with 3 task-driven scenarios; add `description` column via `migrateAddColumn`; regenerate `seed-cache.json` via `cache_gen_test.go`.
-- Acceptance: `go test ./web/api/...` green; `curl /api/baselines` returns 3 baselines each with `description`; each trace has `task` + `outcome` keys.
-- Tier: B.
-- Caveat: regenerating seed-cache.json is mandatory; skipping it means stale cache silently serves old LLM/embedding data.
+**Chunk 2: Seed-data rewrite — backend** ✓ shipped 2026-05-27.
 
 **Chunk 3: Seed-data UI surfacing** — add `description?` to `BaselineSummary` in `lib/types.ts`; update home baseline cards to use real `description` as subtitle + match new slug names; ensure baseline detail + trace rows consume `description` / `task` / `outcome`.
 - Acceptance: home cards show real subtitle text + link to renamed baselines; baseline detail callout pulls `description` from API.
@@ -304,7 +301,7 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 2 — Seed-data rewrite (backend).
+Chunk 3 — Seed-data UI surfacing.
 
 ## Completed chunks
 
@@ -314,6 +311,54 @@ Chunk 2 — Seed-data rewrite (backend).
   / regression / novel) using Claude Design output. Geist fonts via
   `geist` npm package. Sidebar dropped from layout; full-width
   content. Home tests rewritten (4/4 green).
+
+- **Chunk 2: Seed-data rewrite — backend** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Replaced 5 abstract scenarios with 3 task-driven ones:
+  `seed-api-endpoint-rename` (5 runs, 3 strategies — grep-first /
+  search-first / assume-known-path; all variance),
+  `seed-auth-migration-md5-to-bcrypt` (4 before-runs do
+  read+search+read+write+write; 1 after-prompt-change skips the search
+  → regressed outcome, silently leaves verify.go untouched), and
+  `seed-new-endpoint-with-tests` (3 route-only runs + 2 route+test
+  additive runs). Added `description TEXT NOT NULL DEFAULT ''` column
+  to `baselines` table via existing `migrateAddColumn` helper
+  (`web/api/db/sqlite.go:136`) per
+  `sqlite-add-column-pragma-table-info-idempotent`; `Description`
+  field on `Baseline` + `BaselineSummary`; `CreateBaseline` signature
+  changed to `(name, description, traceIDs)`. Per-trace metadata
+  carries `task` (same per scenario) + `outcome` (succeeded /
+  regressed / variance / additive). User prompts + tool args + result
+  outputs all use realistic synthetic content (real-looking paths,
+  short snippets) instead of `"Demo prompt for read_file"` filler.
+  `seed-cache.json` regenerated via `go test -tags genseed
+  ./web/api/seed/ -run TestGenerateSeedCache` to 9 triage pairs + 15
+  transcripts; embedding regen gated on `VOYAGE_API_KEY` (0
+  embeddings currently — see Open Questions). **Scope drift accepted
+  retroactively at checkpoint:** added `description` field to
+  `baselineSummaryResponse` JSON in `web/api/handlers/baselines.go`
+  so chunk 3 can wire home-card subtitles; the spec's "API surface
+  stays stable" clause read as no-breaking-changes / no-new-endpoints,
+  not no-additive-fields. Mechanical signature fix-ups in
+  `web/api/db/db_test.go` (6 sites), `web/api/handlers/promote.go`
+  (1 site), `web/api/handlers/baselines.go` (1 site), and trace-name
+  string swaps in `web/api/seed/cache_load_test.go` (4 sites — old
+  `seed-tool-order-stable/run-{1,2}` → new
+  `seed-api-endpoint-rename/run-{1,2}`, round-trip tests still test
+  mechanics). Tests: tightened
+  `TestSeed_PopulatesScenariosOnEmptyDB` (exactly 3 + non-empty
+  Description), added `TestSeed_TracesHaveTaskAndOutcomeMetadata`
+  (per-trace task + outcome + shared-task invariant), removed
+  `stableScenarios` carve-out from
+  `TestSeed_EachScenarioHasDistinctToolSequence`. Full `go test
+  ./web/api/...` green. **Recall hits applied:**
+  `sqlite-add-column-pragma-table-info-idempotent`,
+  `expose-prod-hash-from-handlers-for-cache-prepopulation`,
+  `tdd-retroactive-ratification-flag-dont-fake-red`,
+  `claude-as-its-own-cache-source` (wiki concept). **REFACTOR scan:**
+  all predicted obsoletions deleted in-chunk (5 old scenario
+  literals; `stableScenarios` map; 9 old triage pairs + 26 old
+  transcript specs + 7 per-shape templates in cache_gen_test.go;
+  ~13.5k lines of old seed-cache.json).
 
 - **Chunk 1: /about page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Translated `_design/project/about.{html,jsx,css}` into a Next.js client
@@ -360,6 +405,19 @@ Chunk 2 — Seed-data rewrite (backend).
 - Introduce-me placement (nav chip / floating badge / footer block):
   defer to Claude Design's recommendation (Prompt 6). Re-confirm at
   Chunk 13 kickoff against the CD output.
+- `web/api/seed/seed-cache.json` was regenerated at chunk 2 with 0
+  embedding entries because `VOYAGE_API_KEY` was unset locally;
+  triage + transcript halves are correct. Before ship, either: (a)
+  set `VOYAGE_API_KEY` and re-run `go test -tags genseed
+  ./web/api/seed/ -run TestGenerateSeedCache` + commit the new JSON,
+  OR (b) accept first-batch live Voyage cost on `/api/similar` miss
+  when the Fly binary boots (Fly has the key set; per-trace embed
+  generates lazily on miss and writes back to the embeddings table).
+  Option (b) is the lower-friction path.
+- Pre-existing `go vet` noise in
+  `web/api/handlers/similar_test.go` (5 issues, "using resp before
+  checking for errors") — not introduced by chunk 2; flag for
+  separate cleanup chunk before ship.
 
 ## Follow-up (post-ship, separate spec)
 

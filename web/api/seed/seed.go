@@ -1,80 +1,226 @@
 // Package seed populates the database with canned demo scenarios on first boot.
 // Scenarios are named with a "seed-" prefix; the prefix doubles as the
 // idempotency gate and as the frontend's filter for the landing-page demo row.
+//
+// Each scenario is task-driven: the human-readable task statement appears as
+// the user-prompt in every trace and is also surfaced via trace metadata
+// (`task` key, same value across all traces in the scenario). Each individual
+// trace carries an `outcome` metadata key (`succeeded` / `regressed` /
+// `variance` / `additive`) the frontend renders as a per-trace badge.
 package seed
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jtsilverman/agentdiff/internal/snapshot"
 	"github.com/jtsilverman/agentdiff/web/api/db"
 )
 
-// scenario is one demo baseline: a human-readable name + N traces, each with
-// its own tool-call sequence. Steps are built inline (not from JSONL fixtures)
+// scenario is one demo baseline: a human-readable name + description + the
+// shared task statement + N traces, each with its own tool-call sequence and
+// per-trace outcome label. Steps are built inline (not from JSONL fixtures)
 // because the recipes are short and read more clearly as Go literals.
 type scenario struct {
-	name   string
-	traces []traceSpec
+	name        string
+	description string
+	task        string
+	traces      []traceSpec
 }
 
+// traceSpec is one run within a scenario. toolCalls are paired with realistic
+// args + short result snippets so the rendered trace reads as a plausible
+// agent invocation rather than the prior "Demo prompt for read_file" filler.
 type traceSpec struct {
 	name      string
-	toolNames []string
+	outcome   string
+	toolCalls []toolCall
+}
+
+type toolCall struct {
+	name   string
+	args   map[string]interface{}
+	output string
 }
 
 func scenarios() []scenario {
 	return []scenario{
+		// Variance scenario: same task, agent picks one of three valid strategies
+		// (grep-first, search-first, assume-known-path). All five runs succeed;
+		// the demo value is the cluster + path-graph showing three coexisting
+		// strategies for the same prompt.
 		{
-			name: "seed-tool-order-stable",
+			name:        "seed-api-endpoint-rename",
+			description: "Rename the /users endpoint to /customers across the codebase. Five agents pick three different strategies — all valid, none regressed.",
+			task:        "Rename the /users endpoint to /customers across the codebase, updating all call sites.",
 			traces: []traceSpec{
-				{name: "run-1", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-2", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-3", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-4", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-5", toolNames: []string{"read_file", "write_file"}},
+				{
+					name:    "run-1",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "grep", args: map[string]interface{}{"pattern": "/users", "path": "."}, output: "src/routes/api.go:23\nsrc/handlers/auth.go:41\nweb/client/api.ts:12"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/api.go"}, output: "router.GET(\"/users\", ListUsers)\nrouter.POST(\"/users\", CreateUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/api.go", "edit": "/users -> /customers"}, output: "wrote 2 changes"},
+						{name: "write_file", args: map[string]interface{}{"path": "web/client/api.ts", "edit": "/users -> /customers"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "run-2",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "grep", args: map[string]interface{}{"pattern": "/users", "path": "."}, output: "src/routes/api.go:23\nsrc/handlers/auth.go:41\nweb/client/api.ts:12"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/api.go"}, output: "router.GET(\"/users\", ListUsers)\nrouter.POST(\"/users\", CreateUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/api.go", "edit": "/users -> /customers"}, output: "wrote 2 changes"},
+						{name: "write_file", args: map[string]interface{}{"path": "web/client/api.ts", "edit": "/users -> /customers"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "run-3",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "search", args: map[string]interface{}{"query": "endpoint definitions"}, output: "3 files match: src/routes/api.go, src/handlers/auth.go, web/client/api.ts"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/api.go"}, output: "router.GET(\"/users\", ListUsers)\nrouter.POST(\"/users\", CreateUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/api.go", "edit": "/users -> /customers"}, output: "wrote 2 changes"},
+					},
+				},
+				{
+					name:    "run-4",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "search", args: map[string]interface{}{"query": "endpoint definitions"}, output: "3 files match: src/routes/api.go, src/handlers/auth.go, web/client/api.ts"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/api.go"}, output: "router.GET(\"/users\", ListUsers)\nrouter.POST(\"/users\", CreateUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/api.go", "edit": "/users -> /customers"}, output: "wrote 2 changes"},
+					},
+				},
+				{
+					name:    "run-5",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/api.go"}, output: "router.GET(\"/users\", ListUsers)\nrouter.POST(\"/users\", CreateUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/api.go", "edit": "/users -> /customers"}, output: "wrote 2 changes"},
+						{name: "write_file", args: map[string]interface{}{"path": "web/client/api.ts", "edit": "/users -> /customers"}, output: "wrote 1 change"},
+					},
+				},
 			},
 		},
+
+		// Regression scenario: a "before" path used search to enumerate call
+		// sites and update them comprehensively; the "after" path skips the
+		// search and only updates the file it directly knows about, silently
+		// missing other call sites. Demonstrates regression detection via
+		// before/after divergence in tool sequence.
 		{
-			name: "seed-tool-order-variance",
+			name:        "seed-auth-migration-md5-to-bcrypt",
+			description: "Refactor user-auth from MD5 to bcrypt. Four runs handle the migration carefully; one shortcuts after a prompt change and misses call sites.",
+			task:        "Refactor the user-auth module from MD5 password hashing to bcrypt, updating every call site.",
 			traces: []traceSpec{
-				{name: "run-1", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-2", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-3", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-4", toolNames: []string{"search", "read_file", "write_file"}},
-				{name: "run-5", toolNames: []string{"search", "read_file", "write_file"}},
+				{
+					name:    "before-1",
+					outcome: "succeeded",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/passwords.go"}, output: "func Hash(pw string) string { return md5.Sum([]byte(pw)) }"},
+						{name: "search", args: map[string]interface{}{"query": "md5.Sum|MD5", "path": "src/"}, output: "src/auth/passwords.go:8\nsrc/auth/verify.go:14\nsrc/migration/users.go:22"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/verify.go"}, output: "expected := md5.Sum([]byte(input))"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/passwords.go", "edit": "md5.Sum -> bcrypt.GenerateFromPassword"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/verify.go", "edit": "md5.Sum -> bcrypt.CompareHashAndPassword"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "before-2",
+					outcome: "succeeded",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/passwords.go"}, output: "func Hash(pw string) string { return md5.Sum([]byte(pw)) }"},
+						{name: "search", args: map[string]interface{}{"query": "md5.Sum|MD5", "path": "src/"}, output: "src/auth/passwords.go:8\nsrc/auth/verify.go:14\nsrc/migration/users.go:22"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/verify.go"}, output: "expected := md5.Sum([]byte(input))"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/passwords.go", "edit": "md5.Sum -> bcrypt.GenerateFromPassword"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/verify.go", "edit": "md5.Sum -> bcrypt.CompareHashAndPassword"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "before-3",
+					outcome: "succeeded",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/passwords.go"}, output: "func Hash(pw string) string { return md5.Sum([]byte(pw)) }"},
+						{name: "search", args: map[string]interface{}{"query": "md5.Sum|MD5", "path": "src/"}, output: "src/auth/passwords.go:8\nsrc/auth/verify.go:14\nsrc/migration/users.go:22"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/verify.go"}, output: "expected := md5.Sum([]byte(input))"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/passwords.go", "edit": "md5.Sum -> bcrypt.GenerateFromPassword"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/verify.go", "edit": "md5.Sum -> bcrypt.CompareHashAndPassword"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "before-4",
+					outcome: "succeeded",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/passwords.go"}, output: "func Hash(pw string) string { return md5.Sum([]byte(pw)) }"},
+						{name: "search", args: map[string]interface{}{"query": "md5.Sum|MD5", "path": "src/"}, output: "src/auth/passwords.go:8\nsrc/auth/verify.go:14\nsrc/migration/users.go:22"},
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/verify.go"}, output: "expected := md5.Sum([]byte(input))"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/passwords.go", "edit": "md5.Sum -> bcrypt.GenerateFromPassword"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/verify.go", "edit": "md5.Sum -> bcrypt.CompareHashAndPassword"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "after-prompt-change",
+					outcome: "regressed",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/auth/passwords.go"}, output: "func Hash(pw string) string { return md5.Sum([]byte(pw)) }"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/auth/passwords.go", "edit": "md5.Sum -> bcrypt.GenerateFromPassword"}, output: "wrote 1 change"},
+					},
+				},
 			},
 		},
+
+		// Novel-strategy scenario: 3 baseline runs add the endpoint directly;
+		// 2 later runs adopt a test-first approach, writing the test file
+		// alongside the route. The new pattern is additive — the original
+		// route-only path still works — so outcome is `additive`, not
+		// `regressed`. Natural counterfactual target: "what would run-1 look
+		// like if it also wrote a test?"
 		{
-			name: "seed-prompt-regression",
+			name:        "seed-new-endpoint-with-tests",
+			description: "Add a new GET /users/:id/preferences endpoint. Three runs add the route directly; two later runs also write a test file — additive behavior, not a regression.",
+			task:        "Add a new GET /users/:id/preferences endpoint to the user service.",
 			traces: []traceSpec{
-				{name: "before-1", toolNames: []string{"read_file", "search", "write_file"}},
-				{name: "before-2", toolNames: []string{"read_file", "search", "write_file"}},
-				{name: "before-3", toolNames: []string{"read_file", "search", "write_file"}},
-				{name: "before-4", toolNames: []string{"read_file", "search", "write_file"}},
-				{name: "after-prompt-change", toolNames: []string{"read_file", "write_file"}},
-			},
-		},
-		{
-			name: "seed-novel-tool-discovery",
-			traces: []traceSpec{
-				{name: "run-1", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-2", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-3", toolNames: []string{"read_file", "write_file"}},
-				{name: "run-4", toolNames: []string{"read_file", "grep", "write_file"}},
-				{name: "run-5", toolNames: []string{"read_file", "grep", "write_file"}},
-			},
-		},
-		{
-			name: "seed-noise-and-strategies",
-			traces: []traceSpec{
-				{name: "fetch-parse-store-1", toolNames: []string{"fetch", "parse", "store"}},
-				{name: "fetch-parse-store-2", toolNames: []string{"fetch", "parse", "store"}},
-				{name: "fetch-parse-store-3", toolNames: []string{"fetch", "parse", "store"}},
-				{name: "fetch-store-1", toolNames: []string{"fetch", "store"}},
-				{name: "fetch-store-2", toolNames: []string{"fetch", "store"}},
-				{name: "outlier-bash-fetch", toolNames: []string{"bash", "fetch"}},
+				{
+					name:    "run-1",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/users.go"}, output: "router.GET(\"/users/:id\", GetUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users.go", "edit": "+ router.GET(\"/users/:id/preferences\", GetPreferences)"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "run-2",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/users.go"}, output: "router.GET(\"/users/:id\", GetUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users.go", "edit": "+ router.GET(\"/users/:id/preferences\", GetPreferences)"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "run-3",
+					outcome: "variance",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/users.go"}, output: "router.GET(\"/users/:id\", GetUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users.go", "edit": "+ router.GET(\"/users/:id/preferences\", GetPreferences)"}, output: "wrote 1 change"},
+					},
+				},
+				{
+					name:    "run-4",
+					outcome: "additive",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/users.go"}, output: "router.GET(\"/users/:id\", GetUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users.go", "edit": "+ router.GET(\"/users/:id/preferences\", GetPreferences)"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users_test.go", "edit": "+ TestGetPreferences"}, output: "created 1 file"},
+					},
+				},
+				{
+					name:    "run-5",
+					outcome: "additive",
+					toolCalls: []toolCall{
+						{name: "read_file", args: map[string]interface{}{"path": "src/routes/users.go"}, output: "router.GET(\"/users/:id\", GetUser)"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users.go", "edit": "+ router.GET(\"/users/:id/preferences\", GetPreferences)"}, output: "wrote 1 change"},
+						{name: "write_file", args: map[string]interface{}{"path": "src/routes/users_test.go", "edit": "+ TestGetPreferences"}, output: "created 1 file"},
+					},
+				},
 			},
 		},
 	}
@@ -103,45 +249,50 @@ func Seed(database *db.DB) error {
 			trace, err := database.CreateTrace(
 				fmt.Sprintf("%s/%s", s.name, ts.name),
 				"seed",
-				map[string]string{"scenario": s.name},
+				map[string]string{
+					"scenario": s.name,
+					"task":     s.task,
+					"outcome":  ts.outcome,
+				},
 			)
 			if err != nil {
 				return fmt.Errorf("create trace %s/%s: %w", s.name, ts.name, err)
 			}
-			if err := database.InsertSnapshots(trace.ID, buildSteps(ts.toolNames)); err != nil {
+			if err := database.InsertSnapshots(trace.ID, buildSteps(s.task, ts.toolCalls)); err != nil {
 				return fmt.Errorf("insert snapshots %s/%s: %w", s.name, ts.name, err)
 			}
 			traceIDs = append(traceIDs, trace.ID)
 		}
-		if _, err := database.CreateBaseline(s.name, traceIDs); err != nil {
+		if _, err := database.CreateBaseline(s.name, s.description, traceIDs); err != nil {
 			return fmt.Errorf("create baseline %s: %w", s.name, err)
 		}
 	}
 	return nil
 }
 
-// buildSteps produces a user-prompt + alternating tool-call / tool-result chain
-// for the given tool names. Each tool is invoked once with a synthetic
-// argument and returns a synthetic success output, enough for the cluster and
-// path-graph algorithms to read a non-trivial sequence.
-func buildSteps(toolNames []string) []snapshot.Step {
+// buildSteps produces a user-prompt + alternating tool-call / tool-result chain.
+// The user prompt is the scenario's task statement (so trace transcripts read
+// as plausible agent invocations). Each tool-call carries its real args + a
+// short canned output snippet — long enough to read as a real result, short
+// enough not to drown the path graph.
+func buildSteps(task string, calls []toolCall) []snapshot.Step {
 	steps := []snapshot.Step{
-		{Role: "user", Content: "Demo prompt for " + strings.Join(toolNames, ", ")},
+		{Role: "user", Content: task},
 	}
-	for _, name := range toolNames {
+	for _, c := range calls {
 		steps = append(steps,
 			snapshot.Step{
 				Role: "assistant",
 				ToolCall: &snapshot.ToolCall{
-					Name: name,
-					Args: map[string]interface{}{"target": "demo"},
+					Name: c.name,
+					Args: c.args,
 				},
 			},
 			snapshot.Step{
 				Role: "tool_result",
 				ToolResult: &snapshot.ToolResult{
-					Name:   name,
-					Output: name + " ok",
+					Name:   c.name,
+					Output: c.output,
 				},
 			},
 		)

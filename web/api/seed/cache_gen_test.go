@@ -20,8 +20,9 @@ import (
 )
 
 // TestGenerateSeedCache writes web/api/seed/seed-cache.json with hand-curated
-// LLM content for the 5 seeded baselines. Triage + transcript portions only;
-// embeddings are appended in a separate Voyage curl pass.
+// LLM content for the 3 seeded task-driven baselines (api-endpoint-rename /
+// auth-migration-md5-to-bcrypt / new-endpoint-with-tests). Triage + transcript
+// portions only; embeddings are appended in a separate Voyage curl pass.
 //
 // Run with:
 //
@@ -80,84 +81,79 @@ func buildTriageEntries(t *testing.T, steps map[string][]snapshot.Step) []triage
 	t.Helper()
 
 	pairs := []triagePair{
-		// seed-tool-order-stable: all 5 runs identical → variance only.
+		// seed-api-endpoint-rename: three coexisting strategies for the same task
+		// (grep-first / search-first / assume-known-path) — every comparison is
+		// healthy variance, no regression.
 		{
-			a:              "seed-tool-order-stable/run-1",
-			b:              "seed-tool-order-stable/run-2",
-			summary:        "Both runs follow the same read_file → write_file sequence with no deviation. The agent's tool order is deterministic across both invocations.",
+			a:              "seed-api-endpoint-rename/run-1",
+			b:              "seed-api-endpoint-rename/run-3",
+			summary:        "Run-1 used grep to enumerate /users call sites before editing; run-3 used the higher-level search tool to find endpoint definitions. Both arrived at the same set of files but via different discovery primitives.",
 			classification: "variance",
-			likelyCause:    "No behavioral change detected. Either both runs were guided by the same deterministic prompt path, or any prompt nondeterminism was resolved identically. This is the expected pattern for a stable agent on a well-specified task.",
+			likelyCause:    "Both runs are valid completions. The choice between grep (literal pattern match) and search (semantic file query) likely depends on how the agent interpreted the task — whether 'rename across the codebase' implied a literal string sweep or a structured-route enumeration. Healthy strategy variance, not a defect.",
+		},
+		{
+			a:              "seed-api-endpoint-rename/run-1",
+			b:              "seed-api-endpoint-rename/run-5",
+			summary:        "Run-1 used grep before editing; run-5 skipped enumeration entirely and went straight to read_file on the route file. Run-5 assumed the route definition's location instead of confirming it.",
+			classification: "variance",
+			likelyCause:    "Run-5's assume-known-path strategy is risky when the codebase doesn't match the agent's assumption, but in this case both runs ended up editing the same files. The strategy variance is the demo signal — three different exploration depths produce equivalent outcomes here, but in a less stable codebase the assume-known path would silently miss call sites.",
+		},
+		{
+			a:              "seed-api-endpoint-rename/run-3",
+			b:              "seed-api-endpoint-rename/run-5",
+			summary:        "Run-3 used search to enumerate endpoint definitions across the codebase; run-5 used no discovery tool at all and went directly to the known route file.",
+			classification: "variance",
+			likelyCause:    "Cross-strategy comparison between the most-cautious (search-first) and least-cautious (assume-known) approaches in this baseline. Both terminate at write_file; the divergence is in the discovery step, not in the edit step itself.",
+		},
+		{
+			a:              "seed-api-endpoint-rename/run-1",
+			b:              "seed-api-endpoint-rename/run-2",
+			summary:        "Both runs follow the identical grep → read_file → write_file → write_file sequence. Within-strategy reproducibility check.",
+			classification: "variance",
+			likelyCause:    "Within-strategy stability check. The agent behaves consistently across multiple invocations when it picks the grep-first strategy, so any divergence observed against runs 3/4/5 is attributable to strategy choice rather than nondeterminism within one strategy.",
 		},
 
-		// seed-tool-order-variance: short path (read,write) vs long path (search,read,write).
+		// seed-auth-migration-md5-to-bcrypt: before-prompt path uses search to
+		// enumerate call sites; after-prompt path skips search and silently
+		// misses sites. Classic regression signal.
 		{
-			a:              "seed-tool-order-variance/run-1",
-			b:              "seed-tool-order-variance/run-4",
-			summary:        "Run-1 uses the direct read_file → write_file path; run-4 prepends a search step before reading. The longer path explores before committing to the read target, suggesting the agent treated the task as requiring discovery.",
-			classification: "variance",
-			likelyCause:    "Both paths are valid completions of the same task. The agent's choice between them likely depends on its interpretation of prompt phrasing (e.g., 'find and read X' vs 'read X'). This is healthy variance, not a regression, and reflects genuine ambiguity in the original prompt rather than a bug.",
-		},
-		{
-			a:              "seed-tool-order-variance/run-3",
-			b:              "seed-tool-order-variance/run-5",
-			summary:        "Run-3 follows the short read_file → write_file path; run-5 follows the longer search → read_file → write_file path. The two are members of distinct behavioral strategies within this baseline.",
-			classification: "variance",
-			likelyCause:    "Cross-strategy comparison. Both strategies are present in this baseline (3 short runs, 2 long runs), so individual divergence between any short and long run is the expected outcome rather than a defect.",
-		},
-
-		// seed-prompt-regression: before-prompt-change vs after-prompt-change.
-		{
-			a:              "seed-prompt-regression/before-1",
-			b:              "seed-prompt-regression/after-prompt-change",
-			summary:        "Run before-1 includes an intermediate search step (read_file → search → write_file). The after-prompt-change run drops the search and goes straight from read_file to write_file. A behavior previously present is now absent.",
+			a:              "seed-auth-migration-md5-to-bcrypt/before-1",
+			b:              "seed-auth-migration-md5-to-bcrypt/after-prompt-change",
+			summary:        "Run before-1 reads the password module, searches for every MD5 call site, reads each, and rewrites them. The after-prompt-change run reads only the password module and rewrites it, omitting the search step that previously enumerated other call sites.",
 			classification: "regression",
-			likelyCause:    "The most likely cause is a change to the system prompt or task description that no longer signals discovery is needed. If the search step was load-bearing (e.g., locating the correct file before reading), this regression is a silent quality drop. If search was incidental, the simpler path is an improvement. Recommend manually checking the new prompt against the original task requirements.",
+			likelyCause:    "The prompt change appears to have removed the directive that signaled comprehensive call-site updates were needed. Because the search step was load-bearing (it surfaced src/auth/verify.go and src/migration/users.go), dropping it leaves MD5 references in place at those call sites — a silent quality drop that compiles fine but is functionally incorrect. Recommend reinstating the discovery-then-edit pattern in the prompt.",
 		},
 		{
-			a:              "seed-prompt-regression/before-1",
-			b:              "seed-prompt-regression/before-2",
-			summary:        "Both runs follow the read_file → search → write_file sequence with identical tool selection and ordering. No divergence between baseline runs.",
+			a:              "seed-auth-migration-md5-to-bcrypt/before-1",
+			b:              "seed-auth-migration-md5-to-bcrypt/before-2",
+			summary:        "Both runs follow the identical read → search → read → write → write sequence. The agent reproduces the discovery-first migration consistently across pre-change invocations.",
 			classification: "variance",
-			likelyCause:    "Within-baseline reproducibility check. The agent behaves consistently across multiple invocations of the same pre-change prompt, so any divergence observed in the after-prompt-change run is attributable to the prompt change rather than to nondeterminism.",
+			likelyCause:    "Within-baseline reproducibility check. The pre-change prompt elicits the same comprehensive migration shape every time, so the divergence observed in after-prompt-change is fully attributable to the prompt edit rather than to nondeterminism.",
 		},
 
-		// seed-novel-tool-discovery: standard vs novel-grep.
+		// seed-new-endpoint-with-tests: 3 baseline runs add the route directly;
+		// 2 later runs adopt a test-first pattern that ALSO writes a test file.
+		// Additive — original capability preserved, new capability layered on top.
 		{
-			a:              "seed-novel-tool-discovery/run-1",
-			b:              "seed-novel-tool-discovery/run-4",
-			summary:        "Run-1 uses the canonical read_file → write_file path. Run-4 introduces a new grep step between read and write that does not appear in any earlier run.",
+			a:              "seed-new-endpoint-with-tests/run-1",
+			b:              "seed-new-endpoint-with-tests/run-4",
+			summary:        "Run-1 added the /preferences route in a single write to the routes file. Run-4 added the route AND wrote a companion test file (src/routes/users_test.go) that did not exist in run-1.",
 			classification: "additive",
-			likelyCause:    "The agent has discovered (or been granted access to) the grep tool and is incorporating it into its workflow. This is additive behavior rather than a regression: the existing read+write capability is preserved, and a new search-within-content capability has been layered on top. Worth verifying that grep's output is being used downstream and not merely invoked.",
+			likelyCause:    "The agent has adopted a test-first or test-alongside pattern that was absent from the baseline runs. This is additive behavior rather than a regression: the original route-addition capability is preserved, and a new test-writing capability has been layered on top. Worth verifying that the test file exercises the new endpoint and isn't just a stub.",
 		},
 		{
-			a:              "seed-novel-tool-discovery/run-4",
-			b:              "seed-novel-tool-discovery/run-5",
-			summary:        "Both runs use the novel read_file → grep → write_file path consistently. The new tool sequence is stable across multiple invocations once the agent adopted it.",
+			a:              "seed-new-endpoint-with-tests/run-4",
+			b:              "seed-new-endpoint-with-tests/run-5",
+			summary:        "Both runs use the new route-plus-test pattern consistently: read the routes file, add the new route, then create the companion test file. The test-alongside pattern is stable across multiple invocations once the agent adopted it.",
 			classification: "variance",
-			likelyCause:    "Post-adoption stability check. The agent has settled on the grep-augmented workflow, suggesting either a stable prompt change or a learned-preference for the new pattern. No further divergence within the post-adoption cohort.",
+			likelyCause:    "Post-adoption stability check. The agent has settled on the test-alongside workflow, suggesting either a stable prompt change or a learned-preference for the new pattern. No further divergence within the post-adoption cohort.",
 		},
-
-		// seed-noise-and-strategies: multiple strategies + outlier.
 		{
-			a:              "seed-noise-and-strategies/fetch-parse-store-1",
-			b:              "seed-noise-and-strategies/fetch-store-1",
-			summary:        "The fetch-parse-store run includes an intermediate parse step before storing; the fetch-store run goes directly from fetch to store, skipping parsing entirely.",
+			a:              "seed-new-endpoint-with-tests/run-1",
+			b:              "seed-new-endpoint-with-tests/run-2",
+			summary:        "Both runs follow the identical read_file → write_file sequence to add the new route. No divergence between baseline runs.",
 			classification: "variance",
-			likelyCause:    "Two distinct strategies are present in this baseline. fetch-parse-store reflects a 'validate-then-persist' pattern; fetch-store reflects a 'store-raw-and-defer-parsing' pattern. Both are valid completions; the choice between them depends on whether the agent interprets the data as needing transformation at ingest time.",
-		},
-		{
-			a:              "seed-noise-and-strategies/fetch-parse-store-1",
-			b:              "seed-noise-and-strategies/outlier-bash-fetch",
-			summary:        "The fetch-parse-store run uses three structured tools (fetch, parse, store). The outlier run invokes bash before fetch and omits parse and store entirely, producing a fundamentally different shape.",
-			classification: "regression",
-			likelyCause:    "The outlier run is incomplete by the standard of every other baseline trace: no persistence step, prefixed by an ad-hoc bash invocation. This pattern suggests either a degraded prompt that failed to elicit the structured workflow, or a model-side regression that drops the structured-output guarantee. Strong candidate for triage as a real defect, not benign variance.",
-		},
-		{
-			a:              "seed-noise-and-strategies/fetch-store-1",
-			b:              "seed-noise-and-strategies/outlier-bash-fetch",
-			summary:        "The fetch-store run completes the persistence step; the outlier run replaces it with bash. Both omit parsing, but only one persists.",
-			classification: "regression",
-			likelyCause:    "Even compared against the more permissive fetch-store strategy, the outlier drops the persistence step. The bash invocation is unstructured and not wired to downstream consumers, so the run effectively produced no usable output. This is a clear regression against the demonstrated minimum-viable path.",
+			likelyCause:    "Within-baseline reproducibility check on the pre-adoption cohort. The agent behaves consistently when it picks the route-only pattern, so any divergence observed against runs 4/5 is attributable to the additive pattern shift rather than to nondeterminism.",
 		},
 	}
 
@@ -192,89 +188,81 @@ type transcriptSpec struct {
 func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []transcriptEntry {
 	t.Helper()
 
-	// Templates by content shape. Each baseline's traces fall into one of these
-	// patterns; reusing template text keeps the demo readable without claiming
-	// per-run insight the model wouldn't actually have.
-	readWriteSummary := "The agent received a prompt to read and write files, then executed the task in two tool calls: read_file followed by write_file. No intermediate exploration or branching was required; the task's structure was clear enough to commit directly to the canonical two-step path."
-	readWriteDecisions := []string{
-		"Chose to read before writing, establishing the input baseline before producing output.",
-		"Skipped exploratory tools (search, grep) because the prompt did not require discovering content.",
+	// Per-scenario templates by content shape. The 3 task-driven scenarios
+	// produce 5 distinct shapes total; reusing template text per shape keeps
+	// the demo readable without claiming per-run insight the model wouldn't
+	// actually have. Shape captions name the scenario context so identical
+	// tool sequences in different scenarios (read→write) get scenario-honest
+	// prose, not generic templates.
+
+	// seed-api-endpoint-rename shapes.
+	apiGrepFirstSummary := "The agent used grep to enumerate every /users call site in the codebase before touching any file, then opened the route file and edited it, then edited the client file. This is the cautious 'enumerate-then-edit' pattern: it pays one extra discovery call up front to avoid missing call sites later."
+	apiGrepFirstDecisions := []string{
+		"Used grep before any read or write so the edit plan was anchored on the full set of call sites, not just the first one the agent recalled.",
+		"Edited the route file and the client file in separate write_file calls rather than combining them, keeping each edit's diff small and reviewable.",
 	}
 
-	searchReadWriteSummary := "The agent took a discovery-first path: it searched before reading, then wrote. The presence of the search step suggests the agent interpreted the task as requiring it to locate the target before consuming it, rather than receiving the target reference directly in the prompt."
-	searchReadWriteDecisions := []string{
-		"Invoked search before read_file to locate the target rather than assuming the prompt named it directly.",
-		"Followed the search with a single read_file call rather than chaining multiple reads, indicating the search returned a precise enough result.",
-		"Closed with write_file to commit the output, matching the prompt's expected deliverable.",
+	apiSearchFirstSummary := "The agent invoked the higher-level search tool to locate endpoint definitions across the codebase, then opened the route file and rewrote it. The search step is semantic (search for endpoint-shaped patterns) rather than literal (grep for the string), suggesting the agent reasoned about the task at a structural level."
+	apiSearchFirstDecisions := []string{
+		"Chose search over grep, treating the task as finding route definitions rather than finding a literal string.",
+		"Stopped after editing the primary route file, trusting search's enumeration to be exhaustive without a separate verification pass.",
 	}
 
-	readSearchWriteSummary := "The agent executed read_file → search → write_file. Reading first established the input baseline; the search step likely inspected content for a specific pattern before writing the final output. This shape matches a 'load then query' pattern rather than a pure transform."
-	readSearchWriteDecisions := []string{
-		"Loaded the file before searching, suggesting the search operated on the file's contents rather than on the filesystem.",
-		"Used a single search-and-write cycle rather than iterative refinement, indicating the search returned an actionable result on the first pass.",
+	apiAssumeKnownSummary := "The agent skipped all discovery and went straight to read_file on the route file, then write_file on the route file, then write_file on the client file. This 'assume-known-path' pattern is the fastest of the three strategies; it's also the riskiest in a codebase where the assumption doesn't hold."
+	apiAssumeKnownDecisions := []string{
+		"Skipped both grep and search, betting that the route file's location was canonical and that the client file would also need updating.",
+		"Edited route and client in two separate writes, suggesting the agent had a pre-formed model of the call-site fanout without explicit discovery.",
 	}
 
-	readGrepWriteSummary := "The agent invoked grep between read_file and write_file. The grep step filters or extracts content from the loaded file, signaling that the agent treated the task as requiring pattern-based extraction rather than wholesale transformation."
-	readGrepWriteDecisions := []string{
-		"Adopted grep as an intermediate filter rather than asking the model to do the filtering inline.",
-		"Preserved the read-then-write skeleton, layering grep on top rather than replacing existing steps.",
+	// seed-auth-migration-md5-to-bcrypt shapes.
+	authBeforeSummary := "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at."
+	authBeforeDecisions := []string{
+		"Inserted a search step between the initial read and the edits, treating the task as requiring comprehensive call-site updates rather than a single-file rewrite.",
+		"Read every call site before writing, ensuring the bcrypt API contract (GenerateFromPassword for hashing, CompareHashAndPassword for verification) matched each site's usage.",
+		"Issued two separate write_file calls — one per affected module — rather than a combined edit, keeping each diff focused.",
 	}
 
-	fetchParseStoreSummary := "The agent followed a three-stage ingestion pipeline: fetch the data, parse it into a structured form, then store the parsed result. This is the canonical 'validate at ingest' pattern that catches malformed inputs at parse time rather than at downstream consumption."
-	fetchParseStoreDecisions := []string{
-		"Inserted a parse step between fetch and store rather than persisting raw input.",
-		"Treated parsing as a contract enforcement point: invalid input fails here, not later.",
+	authAfterSummary := "The agent read passwords.go and rewrote it to use bcrypt, then stopped. No search step, no discovery of other call sites. The prompt change that produced this run appears to have de-emphasized the comprehensive-update requirement; the result is a silent regression where verify.go and migration/users.go still call md5.Sum after the migration."
+	authAfterDecisions := []string{
+		"Skipped the search step that earlier runs used to enumerate MD5 call sites, leaving sites outside passwords.go untouched.",
+		"Edited only the file the prompt directly named, treating the task as a single-file rewrite rather than a codebase-wide migration.",
 	}
 
-	fetchStoreSummary := "The agent skipped parsing and stored the raw fetched payload directly. This 'store-raw-and-defer-parsing' pattern trades early validation for write throughput; downstream consumers must handle parsing themselves."
-	fetchStoreDecisions := []string{
-		"Omitted parse, suggesting the agent interpreted the storage layer as schema-flexible.",
-		"Reduced the pipeline to two stages, minimizing per-record processing cost at write time.",
+	// seed-new-endpoint-with-tests shapes.
+	newEndpointRouteOnlySummary := "The agent read the routes file to understand the existing pattern, then added the new /users/:id/preferences route in a single write. No test file was created; the task was treated as a pure routing change."
+	newEndpointRouteOnlyDecisions := []string{
+		"Read the routes file before editing to match the existing route-declaration style.",
+		"Added the new route in a single write_file call, leaving testing as a presumed-separate concern.",
 	}
 
-	outlierBashFetchSummary := "The agent invoked bash first, then fetch, then stopped. No parse step, no store step. The bash prefix is unusual: most agents in this baseline use structured tools end-to-end rather than dropping to shell. The run terminated without producing a persisted artifact, suggesting either a workflow breakdown or a deliberate exploratory deviation."
-	outlierBashFetchDecisions := []string{
-		"Reached for bash before any structured tool, breaking from the baseline's structured-tool-first convention.",
-		"Stopped at fetch without invoking store, leaving the fetched data unpersisted.",
-		"Omitted parsing entirely, consistent with the truncated pipeline.",
+	newEndpointWithTestSummary := "The agent read the routes file to understand the existing pattern, added the new /users/:id/preferences route, then created a companion test file (src/routes/users_test.go) for the new endpoint. The test-alongside step is additive: the route is added either way, and this run also produces a test stub."
+	newEndpointWithTestDecisions := []string{
+		"Read the routes file before editing to match the existing route-declaration style.",
+		"Added the new route in a single write to the routes file.",
+		"Created a companion test file (users_test.go) after adding the route, layering a test-first habit on top of the basic route-addition workflow.",
 	}
 
 	specs := []transcriptSpec{
-		// seed-tool-order-stable — all 5 traces identical (read_file, write_file).
-		{traceName: "seed-tool-order-stable/run-1", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-stable/run-2", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-stable/run-3", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-stable/run-4", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-stable/run-5", summary: readWriteSummary, keyDecisions: readWriteDecisions},
+		// seed-api-endpoint-rename — runs 1-2 grep-first, runs 3-4 search-first, run-5 assume-known.
+		{traceName: "seed-api-endpoint-rename/run-1", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
+		{traceName: "seed-api-endpoint-rename/run-2", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
+		{traceName: "seed-api-endpoint-rename/run-3", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
+		{traceName: "seed-api-endpoint-rename/run-4", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
+		{traceName: "seed-api-endpoint-rename/run-5", summary: apiAssumeKnownSummary, keyDecisions: apiAssumeKnownDecisions},
 
-		// seed-tool-order-variance — runs 1-3 read+write, runs 4-5 search+read+write.
-		{traceName: "seed-tool-order-variance/run-1", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-variance/run-2", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-variance/run-3", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-tool-order-variance/run-4", summary: searchReadWriteSummary, keyDecisions: searchReadWriteDecisions},
-		{traceName: "seed-tool-order-variance/run-5", summary: searchReadWriteSummary, keyDecisions: searchReadWriteDecisions},
+		// seed-auth-migration-md5-to-bcrypt — before-1..4 discovery-first, after-prompt-change skips search.
+		{traceName: "seed-auth-migration-md5-to-bcrypt/before-1", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "seed-auth-migration-md5-to-bcrypt/before-2", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "seed-auth-migration-md5-to-bcrypt/before-3", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "seed-auth-migration-md5-to-bcrypt/before-4", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "seed-auth-migration-md5-to-bcrypt/after-prompt-change", summary: authAfterSummary, keyDecisions: authAfterDecisions},
 
-		// seed-prompt-regression — before-1..4 read+search+write, after-prompt-change read+write.
-		{traceName: "seed-prompt-regression/before-1", summary: readSearchWriteSummary, keyDecisions: readSearchWriteDecisions},
-		{traceName: "seed-prompt-regression/before-2", summary: readSearchWriteSummary, keyDecisions: readSearchWriteDecisions},
-		{traceName: "seed-prompt-regression/before-3", summary: readSearchWriteSummary, keyDecisions: readSearchWriteDecisions},
-		{traceName: "seed-prompt-regression/before-4", summary: readSearchWriteSummary, keyDecisions: readSearchWriteDecisions},
-		{traceName: "seed-prompt-regression/after-prompt-change", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-
-		// seed-novel-tool-discovery — runs 1-3 read+write, runs 4-5 read+grep+write.
-		{traceName: "seed-novel-tool-discovery/run-1", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-novel-tool-discovery/run-2", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-novel-tool-discovery/run-3", summary: readWriteSummary, keyDecisions: readWriteDecisions},
-		{traceName: "seed-novel-tool-discovery/run-4", summary: readGrepWriteSummary, keyDecisions: readGrepWriteDecisions},
-		{traceName: "seed-novel-tool-discovery/run-5", summary: readGrepWriteSummary, keyDecisions: readGrepWriteDecisions},
-
-		// seed-noise-and-strategies — 3× fetch-parse-store, 2× fetch-store, 1× outlier.
-		{traceName: "seed-noise-and-strategies/fetch-parse-store-1", summary: fetchParseStoreSummary, keyDecisions: fetchParseStoreDecisions},
-		{traceName: "seed-noise-and-strategies/fetch-parse-store-2", summary: fetchParseStoreSummary, keyDecisions: fetchParseStoreDecisions},
-		{traceName: "seed-noise-and-strategies/fetch-parse-store-3", summary: fetchParseStoreSummary, keyDecisions: fetchParseStoreDecisions},
-		{traceName: "seed-noise-and-strategies/fetch-store-1", summary: fetchStoreSummary, keyDecisions: fetchStoreDecisions},
-		{traceName: "seed-noise-and-strategies/fetch-store-2", summary: fetchStoreSummary, keyDecisions: fetchStoreDecisions},
-		{traceName: "seed-noise-and-strategies/outlier-bash-fetch", summary: outlierBashFetchSummary, keyDecisions: outlierBashFetchDecisions},
+		// seed-new-endpoint-with-tests — runs 1-3 route-only, runs 4-5 route + test.
+		{traceName: "seed-new-endpoint-with-tests/run-1", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "seed-new-endpoint-with-tests/run-2", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "seed-new-endpoint-with-tests/run-3", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "seed-new-endpoint-with-tests/run-4", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
+		{traceName: "seed-new-endpoint-with-tests/run-5", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
 	}
 
 	out := make([]transcriptEntry, 0, len(specs))

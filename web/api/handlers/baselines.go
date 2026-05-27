@@ -23,10 +23,11 @@ type baselineResponse struct {
 
 // baselineSummaryResponse is the JSON response for GET /api/baselines list items.
 type baselineSummaryResponse struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	TraceCount int    `json:"trace_count"`
-	CreatedAt  string `json:"created_at"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	TraceCount  int    `json:"trace_count"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // PostBaseline handles POST /api/baselines.
@@ -48,7 +49,7 @@ func PostBaseline(database *db.DB) http.HandlerFunc {
 			return
 		}
 
-		baseline, err := database.CreateBaseline(req.Name, req.TraceIDs)
+		baseline, err := database.CreateBaseline(req.Name, "", req.TraceIDs)
 		if err != nil {
 			if strings.Contains(err.Error(), "FOREIGN KEY") || strings.Contains(err.Error(), "UNIQUE") {
 				errorResponse(w, http.StatusBadRequest, "invalid trace IDs or duplicate baseline name")
@@ -80,10 +81,11 @@ func ListBaselines(database *db.DB) http.HandlerFunc {
 		resp := make([]baselineSummaryResponse, len(baselines))
 		for i, b := range baselines {
 			resp[i] = baselineSummaryResponse{
-				ID:         b.ID,
-				Name:       b.Name,
-				TraceCount: b.TraceCount,
-				CreatedAt:  b.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				ID:          b.ID,
+				Name:        b.Name,
+				Description: b.Description,
+				TraceCount:  b.TraceCount,
+				CreatedAt:   b.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			}
 		}
 

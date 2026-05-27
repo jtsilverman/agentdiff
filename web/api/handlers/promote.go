@@ -59,7 +59,7 @@ func PromoteTrace(database *db.DB) http.HandlerFunc {
 			name = "promoted-" + short
 		}
 
-		baseline, err := database.CreateBaseline(name, []string{trace.ID})
+		baseline, err := database.CreateBaseline(name, "", []string{trace.ID})
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE") {
 				errorResponse(w, http.StatusBadRequest, "baseline name already exists")

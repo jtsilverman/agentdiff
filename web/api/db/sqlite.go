@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 CREATE TABLE IF NOT EXISTS baselines (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -124,6 +125,10 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 	if err := migrateAddColumn(conn, "snapshots", "latency_ms", "INTEGER"); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if err := migrateAddColumn(conn, "baselines", "description", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		conn.Close()
 		return nil, err
 	}

@@ -405,7 +405,7 @@ func TestCreateBaseline(t *testing.T) {
 	tr1, _ := db.CreateTrace("trace-1", "openai", nil)
 	tr2, _ := db.CreateTrace("trace-2", "claude", nil)
 
-	bl, err := db.CreateBaseline("my-baseline", []string{tr1.ID, tr2.ID})
+	bl, err := db.CreateBaseline("my-baseline", "", []string{tr1.ID, tr2.ID})
 	if err != nil {
 		t.Fatalf("CreateBaseline: %v", err)
 	}
@@ -421,9 +421,9 @@ func TestCreateBaseline_DuplicateName(t *testing.T) {
 	db := testDB(t)
 
 	tr, _ := db.CreateTrace("trace", "openai", nil)
-	db.CreateBaseline("dup-name", []string{tr.ID})
+	db.CreateBaseline("dup-name", "", []string{tr.ID})
 
-	_, err := db.CreateBaseline("dup-name", []string{tr.ID})
+	_, err := db.CreateBaseline("dup-name", "", []string{tr.ID})
 	if err == nil {
 		t.Fatal("expected UNIQUE constraint error for duplicate baseline name")
 	}
@@ -432,7 +432,7 @@ func TestCreateBaseline_DuplicateName(t *testing.T) {
 func TestCreateBaseline_InvalidTraceID(t *testing.T) {
 	db := testDB(t)
 
-	_, err := db.CreateBaseline("bad-refs", []string{"nonexistent"})
+	_, err := db.CreateBaseline("bad-refs", "", []string{"nonexistent"})
 	if err == nil {
 		t.Fatal("expected foreign key violation error")
 	}
@@ -455,8 +455,8 @@ func TestListBaselines_WithTraceCount(t *testing.T) {
 
 	tr1, _ := db.CreateTrace("t1", "openai", nil)
 	tr2, _ := db.CreateTrace("t2", "openai", nil)
-	db.CreateBaseline("two-traces", []string{tr1.ID, tr2.ID})
-	db.CreateBaseline("one-trace", []string{tr1.ID})
+	db.CreateBaseline("two-traces", "", []string{tr1.ID, tr2.ID})
+	db.CreateBaseline("one-trace", "", []string{tr1.ID})
 
 	baselines, err := db.ListBaselines()
 	if err != nil {
@@ -489,7 +489,7 @@ func TestGetBaselineTraces(t *testing.T) {
 	}
 	db.InsertSnapshots(tr.ID, steps)
 
-	bl, _ := db.CreateBaseline("with-steps", []string{tr.ID})
+	bl, _ := db.CreateBaseline("with-steps", "", []string{tr.ID})
 
 	details, err := db.GetBaselineTraces(bl.ID)
 	if err != nil {

@@ -9,21 +9,27 @@ import (
 
 // Baseline represents a stored baseline row.
 type Baseline struct {
-	ID        string
-	Name      string
-	CreatedAt time.Time
+	ID          string
+	Name        string
+	Description string
+	CreatedAt   time.Time
 }
 
 // BaselineSummary is a lightweight baseline listing with trace count.
 type BaselineSummary struct {
-	ID         string
-	Name       string
-	TraceCount int
-	CreatedAt  time.Time
+	ID          string
+	Name        string
+	Description string
+	TraceCount  int
+	CreatedAt   time.Time
 }
 
-// CreateBaseline inserts a baseline and associates the given trace IDs.
-func (db *DB) CreateBaseline(name string, traceIDs []string) (Baseline, error) {
+// CreateBaseline inserts a baseline with a human-readable description and
+// associates the given trace IDs. Description is the per-scenario subtitle
+// the frontend renders on home cards and the baseline-detail callout; empty
+// string is allowed at the DB layer (column default) but the seed path always
+// supplies one.
+func (db *DB) CreateBaseline(name, description string, traceIDs []string) (Baseline, error) {
 	id := uuid.New().String()
 
 	tx, err := db.conn.Begin()
@@ -32,7 +38,7 @@ func (db *DB) CreateBaseline(name string, traceIDs []string) (Baseline, error) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`INSERT INTO baselines (id, name) VALUES (?, ?)`, id, name)
+	_, err = tx.Exec(`INSERT INTO baselines (id, name, description) VALUES (?, ?, ?)`, id, name, description)
 	if err != nil {
 		return Baseline{}, fmt.Errorf("insert baseline: %w", err)
 	}
@@ -54,16 +60,17 @@ func (db *DB) CreateBaseline(name string, traceIDs []string) (Baseline, error) {
 	}
 
 	return Baseline{
-		ID:        id,
-		Name:      name,
-		CreatedAt: time.Now(),
+		ID:          id,
+		Name:        name,
+		Description: description,
+		CreatedAt:   time.Now(),
 	}, nil
 }
 
-// ListBaselines returns all baselines with their trace counts.
+// ListBaselines returns all baselines with their trace counts and descriptions.
 func (db *DB) ListBaselines() ([]BaselineSummary, error) {
 	rows, err := db.conn.Query(`
-		SELECT b.id, b.name,
+		SELECT b.id, b.name, b.description,
 			(SELECT COUNT(*) FROM baseline_traces bt WHERE bt.baseline_id = b.id) AS trace_count,
 			b.created_at
 		FROM baselines b
@@ -77,7 +84,7 @@ func (db *DB) ListBaselines() ([]BaselineSummary, error) {
 	var baselines []BaselineSummary
 	for rows.Next() {
 		var b BaselineSummary
-		if err := rows.Scan(&b.ID, &b.Name, &b.TraceCount, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.TraceCount, &b.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan baseline: %w", err)
 		}
 		baselines = append(baselines, b)

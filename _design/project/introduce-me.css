@@ -1,0 +1,189 @@
+/* introduce-me.css — showcase page styles */
+
+.im-hero { padding: 40px 0 32px; }
+.im-section { padding: 56px 0; }
+.im-section-head {
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.im-section-title {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  margin: 10px 0 6px;
+}
+.im-section-sub {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  max-width: 560px;
+}
+
+/* ── Justification block ── */
+.im-justify {
+  padding: 28px 30px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  max-width: 760px;
+}
+.im-justify-text {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--fg-2);
+  margin-top: 12px;
+}
+.im-justify-text:first-of-type { margin-top: 16px; }
+
+/* ── Placement compare ── */
+.im-placements {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.im-placement {
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color .15s;
+}
+.im-placement.chosen {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 4%, var(--surface)) 100%);
+}
+.im-placement-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.im-placement-head h3 {
+  font-size: 18px;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+}
+.im-placement-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.im-placement-eyebrow {
+  display: block;
+  margin-bottom: 10px;
+}
+.im-placement-eyebrow.good { color: var(--ok); }
+.im-placement-eyebrow.good::before { background: var(--ok); }
+.im-placement-eyebrow.bad  { color: var(--bad); }
+.im-placement-eyebrow.bad::before  { background: var(--bad); }
+.im-placement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.im-placement-list li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  padding-left: 18px;
+  position: relative;
+}
+.im-placement-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 1px;
+  background: var(--border-hi);
+}
+
+/* ── Page grid ── */
+.im-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.im-page-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition: all .12s;
+}
+.im-page-card .mono { grid-column: 1 / -1; }
+.im-page-label {
+  font-size: 14px;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+.im-page-arrow {
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+}
+.im-page-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+.im-page-card:hover .im-page-arrow { color: var(--accent); }
+
+/* ── Anatomy ── */
+.im-anatomy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.im-anatomy-list li {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.im-anatomy-num {
+  font-size: 22px;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.im-anatomy-list h4 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.im-anatomy-list p {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.im-anatomy-list code,
+.im-anatomy-list .mono {
+  font-size: 12px;
+  padding: 1px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+}
+
+@media (max-width: 720px) {
+  .im-placement-cols { grid-template-columns: 1fr; gap: 18px; }
+  .im-anatomy-list li { grid-template-columns: 1fr; gap: 10px; }
+}

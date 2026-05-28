@@ -1124,3 +1124,201 @@ Same iframe throttling I saw in the trace-detail fix — works in real browsers.
 
 Nav updated to make Docs an active link (was previously `href="#"`).
 
+## User
+
+<system-info comment="Only acknowledge these if relevant">
+User is viewing file: docs.html
+</system-info>
+
+<pasted_text name="Pasted text (91 lines)">
+  BATCHED ASK — last two surfaces for agentdiff
+
+  Same project, same design system, same dark theme + Geist. Two deliverables in one bundle: /changelog page and the persistent introduce-me surface. Visitors are a split audience — non-technical CEOs
+  evaluating "what does this product do and is it useful" alongside technical engineers evaluating "can this person ship." Copy throughout should land for both: concrete, plain English, no jargon when a
+  normal word will do. Terms like "drift," "edit distance," "alignment," "additive vs regressed" are fine in the developer reference but should be paraphrased into plain English here.
+
+  ---
+  Deliverable 1 — /changelog (reverse-chronological shipped-features log)
+
+  Reverse-chronological list of entries. Each entry: date, short title, 1-2 sentence "what changed for the user," optional tag (feature / fix / docs / infra). Group entries under month headings.
+
+  Real entries from the agentdiff git log — use these verbatim, do not invent:
+
+  May 2026
+  - 2026-05-27 · Site redesign · Full visual rebuild on Geist + dark theme; new /about, /docs, /traces, /diff pages; live tweaks panel. (feature)
+  - 2026-05-27 · Realistic seed scenarios · Replaced 5 abstract baselines with 3 real-engineering-task scenarios (endpoint rename, password-hash migration, new endpoint with tests) carrying task
+  descriptions and per-run outcome labels. (feature)
+  - 2026-05-27 · Trace detail rebuild · New deep-dive view per trace: sticky step list, role-tagged transcript, tool sequence chip row, full metadata grid. (feature)
+  - 2026-05-27 · Diff page rebuild · Two traces side-by-side with step-by-step comparison, AI-written explanation of why they diverged, switchable picker on either side. (feature)
+  - 2026-05-27 · Developer reference · /docs page added — concepts, API contract, data flow, embed cache mechanism, viz interpretation. (docs)
+  - 2026-05-26 · Per-IP rate cap · Daily cap on counterfactual and edit-prompt requests so a single visitor can't burn the demo's LLM budget. (infra)
+  - 2026-05-26 · Hosted demo live · Go API deployed on Fly.io, Next.js frontend proxied through Vercel. (infra)
+  - 2026-05-26 · Pre-computed embeddings ship in the binary · Voyage embeddings for every seeded baseline baked into the Go binary at build time — zero cold-start cost. (infra)
+  - 2026-05-20 · Similar-traces panel · "Find traces like this one" on the trace detail page, backed by Voyage embeddings + cosine similarity. (feature)
+  - 2026-05-19 · GitHub Action with inline screenshots · CI step posts the trace-comparison PNG directly in PR comments via an orphan-branch image host. (feature)
+  - 2026-05-19 · Inline prompt editor · Rewrite the prompt at any step on the trace detail page and re-run from that point. (feature)
+  - 2026-05-19 · Replay scrubber · Drag through any trace step by step to see what the model saw at each turn. (feature)
+  - 2026-05-19 · Cost/latency heatmap on the path graph · Each tool-call node shaded by token cost and wall time. (feature)
+  - 2026-05-18 · Counterfactual replay · Pick any step in a trace, force a different first decision, and replay from there. (feature)
+  - 2026-05-18 · Audit-to-test · Turn any one-off trace into a permanent baseline with one click — promote-to-test workflow. (feature)
+  - 2026-05-18 · AI-written transcript summaries · Per-trace summary generated and cached by Claude, surfaced on the trace detail page. (feature)
+  - 2026-05-18 · First-boot demo gallery · Out-of-the-box scenarios load on first run so visitors see real comparisons without any setup. (feature)
+  - 2026-05-18 · AI-assisted regression explanations · When a trace diverges from its baseline, Claude writes the one-paragraph explanation of why. (feature)
+  - 2026-05-18 · Path-graph view · Network visualization showing every trace in a baseline overlaid — tool calls as nodes, transitions as edges. (feature)
+  - 2026-05-17 · Path-graph backend · Aggregation and overlay endpoints powering the network viz. (feature)
+
+  April 2026
+  - 2026-04-07 · Metadata tagging on traces · Attach arbitrary key/value labels to any trace for grouping and filtering. (feature)
+  - 2026-04-06 · Frontend test suite · 90+ unit and component tests across pages, components, and the API client (vitest + React Testing Library). (infra)
+  - 2026-04-06 · agentdiff bench CLI · Run a synthetic-trace benchmark suite from the command line, with table or JSON output. (feature)
+  - 2026-04-06 · Evaluation metrics for benchmarks · ARI, F1, recall/precision computed against synthetic ground truth. (feature)
+  - 2026-04-05 · Web comparison dashboard · Initial Next.js frontend — list baselines, diff traces, view clustering and drift across runs. (feature)
+  - 2026-04-05 · Claude Code adapter · Parse Claude Code's stream-json output into the agentdiff trace format. (feature)
+  - 2026-04-05 · Strategy clustering · DBSCAN-based clustering of trace tool-sequences into named strategies per baseline. (feature)
+
+  Tone: factual, dated, no marketing puffery. The "what changed for the user" sentence is the interesting part. Avoid jargon in entry titles ("AI-written explanation" over "AI triage," "step-by-step
+  comparison" over "edit-distance alignment").
+
+  Don't: redesign nav/footer. Don't reintroduce Tremor. Pure prose, no API calls.
+
+  Deliver: changelog.html, changelog.jsx, changelog.css. Screenshots: 1-2 showing the timeline density and tag styling.
+
+  ---
+  Deliverable 2 — introduce-me persistent surface (every-page "hire me" affordance)
+
+  This whole site is Jake Silverman's FDE (forward-deployed engineer) portfolio piece. Visitor lands, browses, eventually notices there's a real person behind it who is available to do this kind of work for
+   them. The surface needs to be present enough to register without competing with page content.
+
+  Placement — your call from these three; pick ONE and ship that:
+  - A nav-resident chip in the top-right (initial avatar + name + small CTA).
+  - A floating bottom-corner badge that expands on hover into a small bio card.
+  - A footer block ("Built by Jake Silverman · for hire as FDE · contact") always visible at the bottom of every page.
+
+  Justify the choice in 2 sentences alongside the deliverable.
+
+  Content:
+
+  - Name: Jake Silverman
+  - One-line role descriptor — derived from the CV profile below. Use the verbatim profile if the surface has room (e.g. expanded bio card on hover); otherwise condense to 1-2 sentences preserving these
+  three claims: (a) data engineer on $100M+ enterprise programs, (b) independent AI engineer shipping production agents, (c) North America winner of PwC's Transfer Pricing AI competition. Don't drop the
+  dollar figure or the competition win — they're load-bearing credentials.
+
+  - CV profile, verbatim:
+  ▎ Data engineer architecting enterprise data infrastructure across Azure Databricks and Microsoft Fabric for $100M+ duty drawback programs. Independent AI engineer building production agents, including an
+   Executive Assistant deployed under her own identity inside a private equity office. North America winner of PwC's Transfer Pricing AI competition; marathoner, HYROX, USC club soccer (captain and
+  president).
+  - CTAs (three links, in priority order):
+    a. Primary CTA — email: mailto:jakesilverman.pro@gmail.com, label like "Email Jake" or "Get in touch"
+    b. LinkedIn: https://www.linkedin.com/in/jacob-silverman1/
+    c. GitHub: https://github.com/jtsilverman
+
+  LinkedIn + GitHub can render as icon-only links next to the primary CTA, or as a small "elsewhere: LinkedIn · GitHub" line — your call based on the placement.
+
+  Tone: confident, not braggy. Visible but not intrusive. Should read to a non-technical CEO as "this person is hireable" and to a technical CTO as "this person ships." No "rockstar," "ninja," "10x,"
+  "passionate."
+
+  Don't: make it a popup, modal, or dismissible banner. Don't overcrowd existing nav. Don't use stock photography or generated portrait art. If the placement wants an avatar, use a simple monogram (J.S.) in
+   the existing brand palette.
+
+  Deliver: introduce-me.html, introduce-me.jsx, introduce-me.css showing the chosen placement integrated with existing nav/footer/page shell. Include the 2-sentence placement justification. Screenshots:
+  surface visible on home, on a baseline detail page, on /about — so we can see how it coexists with each page's content.
+</pasted_text>
+
+## Assistant
+
+_[tool: snip]_
+
+**Placement choice for introduce-me: footer block.**
+*Justification (2 sentences):* The footer is always visible at the end of every page but never competes with content above it — visitors discover Jake after they've read what he built, not before, which is exactly the "noticed there's a real person behind it" moment the brief describes. Nav-resident chips and floating badges both interrupt the existing dark-tool aesthetic; a richer footer treats the credentials with the same hi-fi care as the rest of the product.
+
+Let me build both deliverables. First the footer (adds Jake's intro across every page) + the changelog, then the showcase page.
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+Footer renders beautifully — JS monogram, name, "available · forward-deployed eng" pill with pulsing dot, full CV blurb, Email Jake primary CTA, LinkedIn + GitHub icon links. Now the changelog:
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: show_html]_
+
+_[tool: get_webview_logs]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+Timeline density is good — day-pip rail with continuous gutter line, color-coded dots (cyan/feature, purple/docs, hollow/infra), tag pills, plain-English bodies. Now build the introduce-me showcase page:
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: show_html]_
+
+_[tool: get_webview_logs]_
+
+Now capture the required screenshots — intro surface on home, baseline detail, and about (per spec):
+
+_[tool: save_screenshot]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+_[tool: show_html]_
+
+_[tool: save_screenshot]_
+
+_[tool: view_image]_
+
+The introduce-me surface is present and consistent on all three pages — home (under examples grid), baseline detail (under "other baselines" chip row), and about (under the CTA card). Same anatomy, same placement, no popups, no nav crowding.
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+Shipped both deliverables.
+
+**1. `/changelog`** — `changelog.html`, `changelog.jsx`, `changelog.css`. Reverse-chrono list grouped under month headings (May 2026, April 2026), all 27 entries verbatim from the git log, plain English (no "edit-distance" / "AI triage" jargon — "step-by-step comparison" / "AI-written explanation" instead). Each row is a card with a day-pip rail (mono day number + color-coded dot — cyan/feature, warn/fix, novel/docs, hollow/infra), title, tag badge, and the "what changed for the user" sentence. Top filter chips switch tag scope (feature / fix / docs / infra) with live count pills. Hero shows total + per-tag stats. Continuous gutter line stitches the days into a timeline.
+
+**2. Introduce-me surface — placement: footer block.**
+*Justification:* The footer is always visible at the end of every page but never competes with content above it — visitors discover Jake after they've read what he built, not before, which is exactly the "noticed there's a real person behind it" moment the brief describes. Nav-resident chips and floating badges both interrupt the existing dark-tool aesthetic; a richer footer treats the credentials with the same hi-fi care as the rest of the product.
+
+- Implementation lives in `shared.jsx`'s `Footer` component, so it ships on every page (home, baseline, traces, trace-detail, diff, about, docs, changelog).
+- Surface anatomy: **J.S.** monogram in brand cyan + **Jake Silverman** name + **available · forward-deployed eng** pulsing-dot pill + the full verbatim CV blurb (preserving $100M+ programs, PE office Executive Assistant, PwC win) + **Email Jake** primary CTA + **LinkedIn · GitHub** icon links labeled "elsewhere".
+- Stand-alone showcase at `introduce-me.html` documents the placement decision, lists the three options considered with pros/cons, links to every page where the surface is live, and breaks down the 5-part anatomy.
+
+**Screenshots in `/screenshots/`:**
+- Changelog: `02-cl-01-hero.png` (hero + first 3 entries · timeline density visible), `cl-02-timeline.png` (mid-timeline showing tag-color variation).
+- Introduce-me on three pages: `02-im-home.png` (under examples grid), `02-im-baseline.png` (under "other baselines" chip row), `02-im-about.png` (under the CTA card). Surface renders identically — same monogram, name, pill, blurb, CTAs — across all contexts.
+
+Nav now has Changelog as an active link instead of the previous `href="#"` placeholder.
+

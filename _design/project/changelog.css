@@ -1,0 +1,172 @@
+/* changelog.css */
+
+.cl-hero { padding: 36px 0 32px; }
+.cl-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 28px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+/* ─── Controls ─── */
+.cl-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 24px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.cl-seg-count {
+  font-size: 10px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  background: var(--bg);
+  border-radius: 3px;
+  color: var(--dim);
+}
+.seg-btn.active .cl-seg-count {
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+
+/* ─── Timeline ─── */
+.cl-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  padding-bottom: 20px;
+}
+
+.cl-month {
+  position: relative;
+}
+.cl-month-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.cl-month-name {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--fg);
+}
+.cl-month-count { font-size: 11px; }
+
+/* ─── Entries ─── */
+.cl-entries {
+  display: flex;
+  flex-direction: column;
+  /* a continuous gutter line down the rail */
+  position: relative;
+}
+.cl-entries::before {
+  content: "";
+  position: absolute;
+  left: 30px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--border);
+}
+
+.cl-entry {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 14px;
+  padding: 14px 0;
+  position: relative;
+}
+
+.cl-entry-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  position: relative;
+  z-index: 1;
+}
+.cl-entry-day {
+  font-size: 14px;
+  color: var(--fg);
+  font-feature-settings: "tnum";
+  letter-spacing: -0.01em;
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.cl-entry-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--muted);
+}
+.cl-entry-dot.tag-feature { border-color: var(--accent); background: var(--accent); }
+.cl-entry-dot.tag-fix     { border-color: var(--warn);   background: var(--warn); }
+.cl-entry-dot.tag-docs    { border-color: var(--novel);  background: var(--novel); }
+.cl-entry-dot.tag-infra   { border-color: var(--muted);  background: var(--surface); }
+
+.cl-entry-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  transition: border-color .12s;
+}
+.cl-entry:hover .cl-entry-body { border-color: var(--border-hi); }
+
+.cl-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.cl-entry-title {
+  font-size: 16px;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.3;
+}
+.cl-entry-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.cl-entry-text {
+  font-size: 13.5px;
+  color: var(--fg-2);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.cl-entry-meta {
+  font-size: 10.5px;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+
+/* ─── responsive ─── */
+@media (max-width: 980px) {
+  .cl-hero-grid { grid-template-columns: 1fr; gap: 18px; }
+  .cl-hero-stats { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 720px) {
+  .cl-entry { grid-template-columns: 44px 1fr; gap: 10px; }
+  .cl-entries::before { left: 22px; }
+  .cl-entry-day { font-size: 12px; padding: 1px 4px; }
+}

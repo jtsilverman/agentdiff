@@ -28,6 +28,7 @@ import MoneyRow from '@/components/baseline/MoneyRow';
 import CounterfactualModal from '@/components/baseline/CounterfactualModal';
 import EditPromptModal from '@/components/baseline/EditPromptModal';
 import SimilarModal from '@/components/baseline/SimilarModal';
+import SiteFooter from '@/components/SiteFooter';
 
 export default function BaselineDetailPage() {
   const params = useParams<{ id: string }>();
@@ -208,6 +209,8 @@ export default function BaselineDetailPage() {
           </Text>
         )}
       </Card>
+
+      <SiteFooter />
     </div>
   );
 }

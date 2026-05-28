@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import SiteNav from '@/components/SiteNav';
+import Tweaks from '@/components/Tweaks';
 
 export const metadata: Metadata = {
   title: 'agentdiff — see how your AI thinks',
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body>
         <SiteNav />
         <main>{children}</main>
+        <Tweaks />
       </body>
     </html>
   );

@@ -241,27 +241,15 @@ results back into `_design/project/`. The Next.js port chunks
 - Acceptance: each button opens a working modal that invokes the existing API (`runCounterfactual`, `editPrompt`, `getSimilar`); existing tests still pass.
 - Tier: B.
 
-**Chunk 7: /traces page port** — port Claude Design's `traces.{html,jsx,css}` (Prompt 1 in `_design/prompts.md`) into `web/frontend/src/app/traces/page.tsx`. Filter chips, scannable trace list, links to trace detail.
-- Acceptance: route loads with no Tremor sidebar, lists traces with filter chips, uses design system's card / badge styles.
-- Tier: B.
-- Caveat: blocks until `_design/project/traces.*` exists.
+**Chunk 7: /traces page port** ✓ shipped 2026-05-27.
 
 **Chunk 8: /diff page port** ✓ shipped 2026-05-27.
 
-**Chunk 9: Trace detail page port** — port CD's `trace-detail.{html,jsx,css}` (Prompt 3) into `web/frontend/src/app/traces/[id]/page.tsx`. Keep existing `StepList`, `Transcript`, `MetadataBadges`; restyle container + chrome.
-- Acceptance: trace detail renders in dark-themed shell with sticky step list, all sub-components readable, no regression on data display.
-- Tier: B.
-- Caveat: blocks until `_design/project/trace-detail.*` exists.
+**Chunk 9: Trace detail page port** ✓ shipped 2026-05-27.
 
-**Chunk 10: /docs page port** — port CD's `docs.{html,jsx,css}` (Prompt 4) into a new route `web/frontend/src/app/docs/page.tsx`. Concept glossary, API reference, data flow, embed-cache mechanism, interpretation guide.
-- Acceptance: route exists, all 5 sections render with sticky anchors, code blocks render in Geist Mono, no API calls (pure prose).
-- Tier: B.
-- Caveat: blocks until `_design/project/docs.*` exists; add `/docs` link to nav.
+**Chunk 10: /docs page port** ✓ shipped 2026-05-27.
 
-**Chunk 11: /changelog page port** — port CD's `changelog.{html,jsx,css}` (Prompt 5) into a new route `web/frontend/src/app/changelog/page.tsx`. Reverse-chronological shipped-features list with date + tag.
-- Acceptance: route exists, entries render grouped by month, dates and tags visible, no API calls (markdown-style prose).
-- Tier: C.
-- Caveat: blocks until `_design/project/changelog.*` exists; add `/changelog` link to nav.
+**Chunk 11: /changelog page port** ✓ shipped 2026-05-27.
 
 **Chunk 12: Tweaks panel port** — port `_design/project/tweaks-app.jsx` + `tweaks-panel.jsx` into the Next.js frontend. Persist to localStorage. Mount at root layout. Wire to existing CSS vars in `globals.css`.
 - Acceptance: floating Tweaks button opens panel; density/accent/bgTone toggle live; choices persist across reload; works on every page.
@@ -301,7 +289,7 @@ results back into `_design/project/`. The Next.js port chunks
 
 ## Current chunk
 
-Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
+(none — all 16 chunks shipped; spec is a ship candidate, run `ship-spec` in a fresh session)
 
 ## Completed chunks
 
@@ -476,6 +464,42 @@ Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
   Full vitest 156/156 green excluding pre-existing `Nav.test.tsx`;
   `tsc --noEmit` clean. REFACTOR scan: no dead code obsoleted (the
   Tweaks surface is entirely new).
+
+- **Chunk 11: /changelog page port** — Shipped 2026-05-27, committed `04c8cf9`. Tier C.
+  Ported `_design/project/changelog.{html,jsx,css}` (CD prompt 5) into
+  `web/frontend/src/app/changelog/page.tsx` (~368 lines). New route renders
+  27 entries sourced verbatim from the agentdiff git log (April + May 2026),
+  grouped under month headings. Hero shows 4-stat row (total / features /
+  infra / docs); tag-filter `.seg` buttons (all / feature / fix / docs /
+  infra) with per-tag counts; timeline uses a continuous gutter line with
+  day numbers + tag-coloured dots. Added `/changelog` link to `SiteNav`.
+  Appended the `.cl-*` class block to `globals.css`.
+
+- **Chunk 10: /docs page port** — Shipped 2026-05-27, committed `2379e21`. Tier B.
+  Ported `_design/project/docs.{html,jsx,css}` (CD prompt 4) into
+  `web/frontend/src/app/docs/page.tsx` (~628 lines). New route with sticky
+  220px TOC rail tracking the active section on scroll and five anchored
+  sections (concepts / api reference / data flow / embed cache /
+  interpretation). Concept glossary cards (9 terms); endpoint cards (7
+  endpoints, method-coloured pill + curl example + JSON request/response
+  code blocks); ASCII data-flow diagram with numbered pipeline steps;
+  embed-cache callout + Go snippet; 7-cell interpretation grid. Added
+  `/docs` link to `SiteNav`. Appended the `.dx-*` class block to
+  `globals.css`. **Open caveat (flagged in commit):** endpoint payload
+  shapes mirror the CD bundle's illustrative examples — not all match the
+  real handler responses yet; reconcile in a docs-accuracy follow-up.
+
+- **Chunk 9: Trace detail page port** — Shipped 2026-05-27, committed `01dc63f`. Tier B.
+  Ported `_design/project/trace-detail.{html,jsx,css}` (CD prompt 3) into
+  `web/frontend/src/app/traces/[id]/page.tsx` (~539 lines). New layout is
+  a hero (breadcrumb, name chip, big task title, key-decision callout,
+  Compare auto-pick + View baseline actions, 8-cell metadata grid) over a
+  body grid with a sticky 240px step-list rail and a role-tagged
+  transcript (numbered gutter dots, tool-sequence chip row, args/output
+  blocks). Money features (Transcript summary, Promote, Scrubber,
+  Counterfactual, Edit prompt, Similar traces) preserved in a labeled
+  actions section below the transcript. Added Branch icon and appended
+  the `.td-*` class block to `globals.css`.
 
 - **Chunk 8: /diff page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Ported `_design/project/diff.{html,jsx,css}` into

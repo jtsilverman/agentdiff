@@ -103,6 +103,8 @@ export default function AboutPage() {
             <a href="#money">03 · money features</a>
             <span className="ad-dim">·</span>
             <a href="#start">04 · get started</a>
+            <span className="ad-dim">·</span>
+            <a href="#about-jake">05 · about jake</a>
           </div>
         </div>
       </section>
@@ -256,6 +258,99 @@ export default function AboutPage() {
               <Link href="/" className="ad-btn">
                 Skip to the regression example
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="ab-section ab-about-jake" id="about-jake">
+        <div className="ad-container">
+          <div className="ab-section-head">
+            <div>
+              <span className="ad-eyebrow">05 · about jake</span>
+              <h2>
+                I built this. I&apos;m{' '}
+                <span style={{ color: 'var(--accent)', fontStyle: 'italic', fontWeight: 300 }}>
+                  available
+                </span>{' '}
+                to build for your team.
+              </h2>
+            </div>
+            <p className="ab-section-sub">
+              agentdiff is a worked example of what I ship when given a focused
+              AI-engineering problem. The same approach drops into your codebase.
+            </p>
+          </div>
+
+          <div className="aj-grid">
+            <div className="aj-col">
+              <span className="ad-eyebrow">what I do</span>
+              <ul className="aj-list">
+                <li>
+                  Drop into AI engineering teams as a forward-deployed engineer —
+                  same git branch, same PR queue, same standup as your engineers.
+                  Not a contractor on the side.
+                </li>
+                <li>
+                  Ship the AI feature your team scoped three months ago and never
+                  built. Coding-agent eval pipelines, retrieval rewrites, internal
+                  debug tools, the unfun glue that ships product.
+                </li>
+                <li>
+                  Move in days and weeks, not quarters. agentdiff itself is one
+                  worked example — a debug tool for AI agents, built end to end
+                  and shipped to a hosted demo, source open.
+                </li>
+              </ul>
+            </div>
+
+            <div className="aj-col">
+              <span className="ad-eyebrow">credentials</span>
+              <ul className="aj-list aj-creds">
+                <li>
+                  Enterprise data infrastructure for <strong>$100M+</strong> duty
+                  drawback programs on Azure Databricks and Microsoft Fabric.
+                </li>
+                <li>
+                  Production AI agents — including an Executive Assistant
+                  deployed under her own identity inside a private equity office.
+                </li>
+                <li>
+                  <strong>North America winner</strong>, PwC Transfer Pricing AI
+                  competition.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="aj-cta">
+            <span className="ad-eyebrow">get in touch</span>
+            <div className="aj-cta-row">
+              <a
+                href="mailto:jakesilverman.pro@gmail.com"
+                className="ad-btn primary"
+              >
+                Email Jake <ArrowRight />
+              </a>
+              <a
+                href="https://www.linkedin.com/in/jacob-silverman1/"
+                target="_blank"
+                rel="noreferrer"
+                className="ad-btn"
+              >
+                LinkedIn
+              </a>
+              <a
+                href="https://github.com/jtsilverman"
+                target="_blank"
+                rel="noreferrer"
+                className="ad-btn"
+              >
+                GitHub
+              </a>
+              <span className="aj-cta-hint ad-mono ad-dim">
+                fastest reply: email
+              </span>
             </div>
           </div>
         </div>

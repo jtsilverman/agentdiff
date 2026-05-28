@@ -273,9 +273,7 @@ results back into `_design/project/`. The Next.js port chunks
 - Tier: B.
 - Caveat: blocks until `_design/project/introduce-me.*` exists; need Jake's CTA target (email / Calendly / LinkedIn / other) at port time.
 
-**Chunk 14: FDE positioning final copy pass** — tighten home hero copy; add "What I do" + "Get in touch" sections to /about; ensure footer + introduce-me surface + about all reinforce one consistent FDE pitch.
-- Acceptance: home hero communicates FDE value-prop in ≤2 sentences; /about has hireable-me section; copy across home, /about, introduce-me, footer is coherent (no contradictions, one pitch).
-- Tier: C (mostly copy).
+**Chunk 14: FDE positioning final copy pass** ✓ shipped 2026-05-27.
 
 **Chunk 15: seed enrichment — key_decision + baseline rename** — add `key_decision` to every trace's metadata in `web/api/seed/seed.go` (so the trace-detail key-decision callout renders on real traces, not just CD mockups); rename the three baselines from slug-prefixed fixture names (`seed-api-endpoint-rename` etc.) to short engineering-style names (Claude proposes, Jake redlines per the option-A pick at chunk 9 wrap); update home page slug-match keys in `app/page.tsx` to track new IDs; regenerate `web/api/seed/seed-cache.json` via `cache_gen_test.go`.
 - Acceptance: `curl /api/baselines` returns 3 baselines with new short names; every trace JSON has non-empty `metadata.key_decision`; trace detail page's `.td-keydecision` block renders for every seeded trace; home cards link to renamed baseline IDs without 404; `go test ./web/api/...` green.
@@ -306,6 +304,60 @@ results back into `_design/project/`. The Next.js port chunks
 Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
 
 ## Completed chunks
+
+- **Chunk 14: FDE positioning final copy pass** — Shipped 2026-05-27 (awaiting commit). Tier C.
+  Three surfaces hardened on one coherent FDE pitch. (1) Home hero —
+  added `.ad-hero-fde` chip below the actions row in
+  `web/frontend/src/components/home/Hero.tsx`. One-sentence pitch:
+  "Built by **Jake Silverman** — forward-deployed engineer, available
+  to drop into your codebase and ship the AI feature your team has
+  been meaning to." with a `What I do →` CTA linking to
+  `/about#about-jake`. Accent left-border + green pulsing dot.
+  (2) /about — added section 5 (`#about-jake`) after `#start` in
+  `web/frontend/src/app/about/page.tsx`. Three sub-blocks: "What I do"
+  (3 FDE bullets: drop-in posture with same git branch / ship the AI
+  feature scoped 3 months ago / move in days-not-quarters with
+  agentdiff itself as the worked example); "Credentials" (3 bullets
+  mirroring the SiteFooter introduce-me blurb: $100M+ duty drawback
+  programs on Azure Databricks + Microsoft Fabric / Executive Assistant
+  deployed under her own identity inside a PE office / PwC Transfer
+  Pricing AI competition North America winner); "Get in touch"
+  (Email primary `mailto:jakesilverman.pro@gmail.com`, LinkedIn +
+  GitHub secondary, "fastest reply: email" hint). TOC at top of /about
+  updated to include `05 · about jake`. (3) globals.css — ~155 lines
+  appended: `.ad-hero-fde` block (gradient-tinted accent-bordered
+  surface, green pulsing status dot, mono-font inline CTA link, ≤720px
+  responsive breakpoint); `.ab-about-jake` section (radial-gradient
+  background accent on top-right + 96/120 vertical padding);
+  `.aj-grid` (2-column responsive grid → 1-column at ≤1100px);
+  `.aj-list` (arrow-prefixed action items, accent left-border) +
+  `.aj-list.aj-creds` variant (checkmark-prefixed, ok-color
+  left-border); `.aj-cta` row with `.ad-btn primary` + secondary
+  styles; 2 responsive breakpoints.
+  **Coherence audit:** name (Jake Silverman), role (forward-deployed
+  engineer, available), and contact channels match across home hero +
+  /about + SiteFooter introduce-me. Three credentials match between
+  /about and SiteFooter verbatim on substance.
+  **REFACTOR scan:** purely additive copy + CSS chunk; per-file
+  enumeration confirmed nothing in pre-existing hero or /about was
+  superseded across all 5 edited files. Q1=Q2 ("none — purely
+  additive") matches chunk-kickoff prediction; no missed deletions.
+  **Minor drift hazard flagged (not reset-level):** contact URL
+  constants (`EMAIL` / `LINKEDIN_URL` / `GITHUB_URL`) now live as
+  module-local constants in both `SiteFooter.tsx` and as hardcoded
+  attrs in `about/page.tsx`. Channel-change requires touching both
+  spots. Extracting to `web/frontend/src/lib/contact.ts` is a clean
+  ~5-line follow-up out of scope for this copy chunk.
+  Tests: 2 new vitest+RTL assertions — `home.test.tsx` "renders the
+  FDE attribution chip naming Jake + forward-deployed" (asserts
+  `.ad-hero-fde` exists inside `.ad-hero`, contains "Jake Silverman"
+  and "forward-deployed", inner link href = `/about#about-jake`);
+  `about.test.tsx` "renders the about-jake section with what-I-do and
+  get-in-touch" (asserts `#about-jake` exists, contains "What I do"
+  and "Get in touch", `mailto:jakesilverman.pro@gmail.com` link,
+  `linkedin.com` link, `github.com` link). Full vitest 158/158 green
+  excluding pre-existing `Nav.test.tsx` baseline-red (documented Open
+  Question, untouched). `tsc --noEmit` clean.
 
 - **Chunk 15: seed enrichment — key_decision + baseline rename** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Renamed all three seeded baselines by stripping the `seed-` prefix:

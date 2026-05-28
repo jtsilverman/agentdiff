@@ -73,6 +73,19 @@ export default function Hero({ firstBaselineHref }: { firstBaselineHref: string 
             <span className="ad-dim">$</span> npm i -g agentdiff
           </span>
         </div>
+
+        <div className="ad-hero-fde ad-fade-up" style={{ animationDelay: '120ms' }}>
+          <span className="ad-hero-fde-dot ad-pulse" aria-hidden="true" />
+          <span className="ad-hero-fde-text">
+            Built by{' '}
+            <strong>Jake Silverman</strong> — forward-deployed engineer, available
+            to drop into your codebase and ship the AI feature your team has been
+            meaning to.{' '}
+            <Link href="/about#about-jake" className="ad-hero-fde-link">
+              What I do <ArrowRight />
+            </Link>
+          </span>
+        </div>
       </div>
     </section>
   );

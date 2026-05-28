@@ -80,6 +80,20 @@ describe('HomePage', () => {
     });
   });
 
+  it('renders the FDE attribution chip naming Jake + forward-deployed', () => {
+    mockedListBaselines.mockResolvedValue([]);
+    const { container } = render(<HomePage />);
+    const hero = container.querySelector('.ad-hero');
+    expect(hero).not.toBeNull();
+    const fde = hero!.querySelector('.ad-hero-fde');
+    expect(fde).not.toBeNull();
+    expect(fde!.textContent).toMatch(/Jake Silverman/);
+    expect(fde!.textContent).toMatch(/forward-deployed/i);
+    const link = fde!.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/about#about-jake');
+  });
+
   it('falls back to positional baselines when name hints do not match', async () => {
     mockedListBaselines.mockResolvedValue([
       { id: 'a', name: 'alpha', trace_count: 1, created_at: '2026-01-01T00:00:00Z' },

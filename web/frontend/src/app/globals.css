@@ -417,6 +417,64 @@ body {
   font-family: var(--font-mono);
 }
 
+.ad-hero-fde {
+  margin-top: 28px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 6%, var(--surface)) 0%,
+    var(--surface) 100%
+  );
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 10px;
+  max-width: 720px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.ad-hero-fde-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok, #34d399);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok, #34d399) 22%, transparent);
+  margin-top: 7px;
+}
+
+.ad-hero-fde-text strong {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.ad-hero-fde-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  margin-left: 4px;
+}
+.ad-hero-fde-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .ad-hero-fde {
+    font-size: 13px;
+    padding: 12px 14px;
+  }
+}
+
 /* ───────── Examples section ───────── */
 
 .ad-section-head {
@@ -888,6 +946,99 @@ body {
   flex-wrap: wrap;
 }
 
+/* ─── About / Jake (chunk 14: hireable-me close) ─── */
+
+.ab-about-jake {
+  padding: 96px 0 120px;
+  border-top: 1px solid var(--border);
+  background:
+    radial-gradient(
+      ellipse at top right,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 60%
+    );
+}
+
+.aj-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 36px;
+}
+
+.aj-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aj-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aj-list li {
+  position: relative;
+  padding: 14px 16px 14px 38px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 8px;
+}
+
+.aj-list li::before {
+  content: '→';
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.aj-list.aj-creds li {
+  border-left-color: var(--ok, #34d399);
+}
+.aj-list.aj-creds li::before {
+  content: '✓';
+  color: var(--ok, #34d399);
+}
+
+.aj-list strong {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.aj-cta {
+  margin-top: 48px;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aj-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aj-cta-hint {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
 @media (max-width: 1100px) {
   .concepts-grid { grid-template-columns: repeat(2, 1fr); }
   .money-deep { grid-template-columns: 1fr; }
@@ -895,6 +1046,12 @@ body {
   .tour-rail { display: none; }
   .tour-card { grid-template-columns: 1fr; }
   .tour-card-frame { position: static; }
+  .aj-grid { grid-template-columns: 1fr; gap: 28px; }
+}
+
+@media (max-width: 720px) {
+  .ab-about-jake { padding: 64px 0 88px; }
+  .aj-cta { padding: 22px 20px; }
 }
 
 /* ─── Baseline detail (chunk 4: header, callout, trace list) ─── */

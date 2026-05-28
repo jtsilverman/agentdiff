@@ -82,4 +82,20 @@ describe('AboutPage', () => {
     const scope = within(cta as HTMLElement);
     expect(scope.getByText(/Now go try it\./i)).toBeInTheDocument();
   });
+
+  it('renders the about-jake section with what-I-do and get-in-touch', () => {
+    const { container } = render(<AboutPage />);
+    const aboutJake = container.querySelector('#about-jake');
+    expect(aboutJake).not.toBeNull();
+    const scope = within(aboutJake as HTMLElement);
+    expect(scope.getByText(/What I do/i)).toBeInTheDocument();
+    expect(scope.getByText(/Get in touch/i)).toBeInTheDocument();
+    const mail = aboutJake!.querySelector('a[href^="mailto:"]');
+    expect(mail).not.toBeNull();
+    expect(mail!.getAttribute('href')).toBe('mailto:jakesilverman.pro@gmail.com');
+    const linkedin = aboutJake!.querySelector('a[href*="linkedin.com"]');
+    expect(linkedin).not.toBeNull();
+    const github = aboutJake!.querySelector('a[href*="github.com"]');
+    expect(github).not.toBeNull();
+  });
 });

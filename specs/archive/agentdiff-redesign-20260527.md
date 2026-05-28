@@ -1,6 +1,6 @@
 # Spec: agentdiff-redesign
 
-**Status:** Locked
+**Status:** Shipped — 2026-05-27
 **Created:** 2026-05-27
 **Locked:** 2026-05-27 (expanded same day to cover full website rebuild)
 **Branch:** feat/hosted-deploy
@@ -907,3 +907,281 @@ Key files:
   detail, /docs, /changelog, introduce-me). Run them in the existing
   CD session so the design system stays coherent. Results land in
   `_design/project/` and unblock chunks 7-11 + 13.
+
+## Vault drift snapshot (ship time)
+
+Generated 2026-05-27 by ship-spec Step 9. Counts only; for narrative inspection (contradictions, concept-suggestions) run `/wiki-lint` manually.
+
+### Counts
+
+- 190 broken links (unique targets)
+- 62 orphans
+- 34 stale frontmatter
+- 0 supersede-orphans
+- 4 empty buckets
+
+### Broken-link targets
+
+-  
+- ...
+- ../../../../projects/Agnes/cert/RELATIONSHIP-WITH-RUN-EVAL
+- ../../../../projects/Agnes/cert/scenarios/README
+- ../L1-context
+- ../L2-containers
+- ../L2-containers-agent
+- "diagram-system<br/>(synchronous +<br/>explicit lock)"
+- "finishing-a-development-branch<br/>(global skill)"
+- "Step 6<br/>capture-learning<br/>(Claude decides)"
+- <subfolder>/stem
+- agentdiff-hosted-deploy
+- agentdiff-redesign
+- agentdiff-v0.4.0-web-and-buffed
+- archive/cert-harness
+- archive/harness-index
+- archive/L3-prepare-and-gates-proposed
+- archive/planning-system
+- Binary file /Users/admin/Documents/brain/wiki/projects/claude-code-setup/L0-collage.png matches
+- browser-agent-integration
+- browser-agent-wiki-and-routing
+- bucket-memory-and-scope-recall
+- c4-runtime-vs-procedure-containers
+- capture-learning
+- chunk-checkpoint
+- chunk-checkpoint<br/>resume
+- chunk-kickoff
+- chunk-pivot
+- chunk-pivot<br/>(retrofit, late)
+- chunk-pivot<br/>retrofit
+- Claude-API
+- claude-code-setup-overhaul
+- claude-design-integration-patterns
+- codebase-audit-checklist
+- concepts/model-harness-fit
+- concepts/process
+- continuous-capture-and-recall-across-wiki-and-sources
+- curl-probe-api-call-shape-first
+- day-trader
+- day-trader-phase-a
+- day-trader-phase-b
+- di-for-spawnsync-mocking-in-esm
+- diagram-system
+- diagram-system<br/>L1 / L2 / L3
+- employment
+- error-path-side-effect-fails-soft-to-stderr
+- expose-prod-hash-from-handlers-for-cache-prepopulation
+- finance-desk
+- git-discipline
+- harness/index
+- investigation-chunk-folds-findings-back-into-spec
+- L0-collage.png
+- L3-chunk-kickoff
+- L3-phase-flow.png
+- laptop-to-mini-migration
+- links
+- localstorage-jwt-unwrap-json-stringified
+- memory-system-typed-retrieval-and-supersede
+- Microsoft-Graph-freebusy-permissions
+- MSAL
+- mv3-main-world-for-page-state
+- online-persona
+- online-persona-prep
+- Outlook-Graph-API
+- overconfident-negative-diagnosis-from-missing-events
+- page-name
+- preserve-slot-identity-on-deterministic-collapse
+- privy-fde-projects
+- projects/<project>/<subfolder>/stem
+- projects/<project>/L1-context
+- projects/<project>/L2-containers
+- projects/<project>/X
+- projects/agnes/approval/L4-approval-code-state
+- projects/agnes/approval/L4-classifyApprovalReply
+- projects/agnes/approval/L4-escalation-state
+- projects/agnes/archive/harness-index
+- projects/agnes/archive/planning-system
+- projects/agnes/cert/L3-cert-organization
+- projects/agnes/concepts/process
+- projects/agnes/concepts/two-tier-topology
+- projects/agnes/concepts/workspace-docs-as-prompt
+- projects/agnes/history/eval-gate
+- projects/agnes/history/L3-eval-gate
+- projects/agnes/history/L4-impersonation-strip
+- projects/agnes/history/phase-1.1-hardening
+- projects/agnes/index
+- projects/agnes/L1-context
+- projects/agnes/L2-containers
+- projects/agnes/mail-flow/L3-approval-classify-proposed
+- projects/agnes/mail-flow/L3-classify-and-dispatch
+- projects/agnes/mail-flow/L3-edit-draft-proposed
+- projects/agnes/mail-flow/L3-graph-auth-retry
+- projects/agnes/mail-flow/L3-mail-flow-overview-proposed
+- projects/agnes/mail-flow/L3-style-layer
+- projects/agnes/mail-flow/L4-graphFetch
+- projects/agnes/mail-flow/L4-prepareBody
+- projects/agnes/mail-flow/L4-safetyGates
+- projects/agnes/operations/audit-studio
+- projects/agnes/operations/dev-studio-disconnect
+- projects/agnes/operations/L3-deploy-flow
+- projects/agnes/operations/L3-deploy-skill-flow
+- projects/agnes/operations/L3-pull-state
+- projects/agnes/operations/recovery-playbooks
+- projects/agnes/operations/runbook
+- projects/agnes/operations/secrets-and-config
+- projects/agnes/operations/testing
+- projects/agnes/reservations/L3-reservation-flow
+- projects/agnes/reservations/resy-api-shape
+- projects/agnes/runtime/cost-analysis
+- projects/agnes/runtime/heartbeat
+- projects/agnes/runtime/L3-agent-loop
+- projects/agnes/runtime/L3-flow-runner
+- projects/agnes/runtime/L3-post-compaction-audit
+- projects/agnes/runtime/L3-webhook-ingress
+- projects/agnes/runtime/L4-gateway-daemon
+- projects/agnes/runtime/L4-launchd-plist
+- projects/agnes/runtime/L4-template-substitution
+- projects/agnes/runtime/substrate-decision-2026-05
+- projects/agnes/skills/agnes-memory
+- projects/agnes/skills/agnes-outlook
+- projects/agnes/state/L3-init-memory
+- projects/agnes/state/L3-memory-schema
+- projects/agnes/state/L4-dedup-guard
+- projects/agnes/state/L4-memory-cli-dispatch
+- projects/agnes/state/L4-processed-state
+- projects/agnes/state/L4-thread-state
+- projects/agnes/testing-protocol
+- projects/claude-code-setup/index
+- projects/claude-code-setup/L1-context
+- projects/claude-code-setup/L2-containers
+- projects/claude-code-setup/skills/L3-capture-learning
+- projects/claude-code-setup/skills/L3-chunk-checkpoint
+- projects/claude-code-setup/skills/L3-explain-back
+- projects/claude-code-setup/skills/L3-reset-or-decompose
+- projects/claude-code-setup/skills/L3-ship-spec
+- projects/claude-code-setup/skills/L3-spec-collaboration
+- projects/claude-code-setup/skills/L3-tier-classify
+- projects/index
+- projects/vega/index
+- recall
+- reservations/L3-applescript-driver
+- reservations/L3-reservation-flow
+- reset-or-decompose
+- reset-or-decompose<br/>on parent N
+- reset-or-decompose<br/>scoped to pivot
+- runtime/substrate-decision-2026-05
+- seedsequence-spawn-for-parallel-reproducible-rngs
+- sensitivity-sweep-failure-via-trade-count-cliff
+- ship-spec
+- skill-lint
+- skill-name
+- skills/<skill>
+- skills/agnes-memory
+- skills/agnes-outlook
+- spec-collaboration
+- spec-collaboration<br/>chunk revision
+- spec-literals-are-hypotheses-verify-at-prework
+- stem
+- stripe-fda-marketing-maester
+- stripe-fda-treasury-packages
+- swing-trader
+- swing-trader-phase-a
+- swing-trader-phase-b
+- systematic-debugging
+- test-driven-development
+- tests-against-stateful-systems
+- tier-classify<br/>escalate
+- tight-window-collapses-orchestrator-search
+- trading-workspace-scaffold
+- ttl-dedup-on-webhook-fanout
+- using-git-worktrees
+- vega-phase-a-foundation
+- vega-phase-b-audit-substrate
+- vega-phase-c-backtest-framework
+- vega-phase-d-strategy-audit
+- vega-phase-e-audited-rewrite
+- vega-phase-f-strategy-selection
+- verification-before-completion
+- wealth-manager
+- wealth-manager-phase-a
+- wealth-manager-phase-b
+- wealth-manager-phase-c
+- wealth-manager-phase-d
+- wiki-and-diagram-refresh-for-claude-workflow
+- wiki-currency-via-spec-drift-queue
+- wiki-lint-two-tier-integration
+- wiki-query
+- wiki-reorg
+- writing-skills
+- X
+
+### Orphan pages
+
+- 2026-05-08-chunk-7-pattern-compounding
+- 2026-05-21-webhook-double-spawn-fix
+- agnes-memory
+- agnes-outlook
+- askuserquestion-raw-xml-emission
+- autobrowse-anti-pattern-deterministic-parsing
+- brainstorm-prompts
+- cert-probes-target-llm-surface-not-cli-rules
+- chunk-1-gut-check-surfaced-judgment-substrate
+- chunk-15-explain-back-rubric-first
+- chunk-15-require-spec-hook
+- chunk-16-require-explanation-hook
+- chunk-19-l5-l6-live-hook-bugs
+- chunk-20-l5-l6-fix
+- chunk-20d-design-questions-resolved-cleanly
+- claude-as-its-own-cache-source
+- claude-code-cache-fix
+- claude-output-length-fails-checkpoint-comprehension
+- commit-message-multi-signature-block-list
+- cwd-resolution-parse-in-hook
+- editing-rubric
+- event-grained-vs-snapshot-grained-evaluation-substrate
+- github
+- github-2026-05-17
+- harness-index
+- idea-seeds
+- inlined-algorithm-with-cross-validation-test
+- L3-reservation-flow
+- L3-session-management
+- linkedin
+- linkedin-2026-05-17
+- macos-keychain-as-agent-secret-store
+- macos-sync-config-pairs-are-semantic-forks-20260519
+- microsoft-graph-freebusy-permissions
+- off-git-development-windows
+- opentable-api-shape
+- operator-vs-approver-distinct-roles
+- outlook-auth-retry
+- playbook-iteration-as-llm-substrate-rl-analog
+- polymorphic-resource-pointer-with-kind-discriminator
+- portfolio-demo-abuse-protection-as-recruiting-hook
+- pre-red-skill-classification
+- privy-localstorage-key-shape
+- protocol-as-skill
+- README
+- regex-gated-on-external-evidence
+- replicating-a-system-means-replicating-context-loading
+- resy-api-shape
+- routing
+- rules-before-skills
+- ship-spec-cleanup-scope
+- spec-lifecycle-archive-on-ship
+- strip-references-from-skills-only
+- substack
+- substack-2026-05-18
+- symlink-as-knowledge-graph-edge
+- twitter
+- twitter-2026-05-17
+- web3-testnet-faucets-2026
+- worked-example-literals-leak-into-llm-behavior
+- workflow
+- worktree-launch-path-trap
+
+### Empty hot buckets
+
+- wiki/daily
+- wiki/entities
+- sources/inbox
+- sources/repos
+

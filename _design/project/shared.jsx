@@ -105,7 +105,7 @@ const Nav = ({ active }) => (
         <a href="traces.html" className={"nav-link" + (active === "traces" ? " active" : "")}>Traces</a>
         <a href="diff.html" className={"nav-link" + (active === "diff" ? " active" : "")}>Diff</a>
         <a href="about.html" className={"nav-link" + (active === "about" ? " active" : "")}>About</a>
-        <a href="#" className="nav-link">Docs</a>
+        <a href="docs.html" className={"nav-link" + (active === "docs" ? " active" : "")}>Docs</a>
         <a href="#" className="nav-link">Changelog</a>
       </div>
       <div className="row">

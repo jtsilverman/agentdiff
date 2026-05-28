@@ -1,72 +1,72 @@
 {
   "triage": [
     {
-      "trace_a_name": "seed-api-endpoint-rename/run-1",
-      "trace_b_name": "seed-api-endpoint-rename/run-3",
+      "trace_a_name": "api-endpoint-rename/run-1",
+      "trace_b_name": "api-endpoint-rename/run-3",
       "prompts_hash": "b0f5fad15bda380b6ca08e62c2d0b3557860eb017cc2c62ca0dde45c1f145abf",
       "summary": "Run-1 used grep to enumerate /users call sites before editing; run-3 used the higher-level search tool to find endpoint definitions. Both arrived at the same set of files but via different discovery primitives.",
       "classification": "variance",
       "likely_cause": "Both runs are valid completions. The choice between grep (literal pattern match) and search (semantic file query) likely depends on how the agent interpreted the task — whether 'rename across the codebase' implied a literal string sweep or a structured-route enumeration. Healthy strategy variance, not a defect."
     },
     {
-      "trace_a_name": "seed-api-endpoint-rename/run-1",
-      "trace_b_name": "seed-api-endpoint-rename/run-5",
+      "trace_a_name": "api-endpoint-rename/run-1",
+      "trace_b_name": "api-endpoint-rename/run-5",
       "prompts_hash": "a8651fad0d382aac09c4b0d8b4c60b19369c084614be3d1292d19c330bf36aa9",
       "summary": "Run-1 used grep before editing; run-5 skipped enumeration entirely and went straight to read_file on the route file. Run-5 assumed the route definition's location instead of confirming it.",
       "classification": "variance",
       "likely_cause": "Run-5's assume-known-path strategy is risky when the codebase doesn't match the agent's assumption, but in this case both runs ended up editing the same files. The strategy variance is the demo signal — three different exploration depths produce equivalent outcomes here, but in a less stable codebase the assume-known path would silently miss call sites."
     },
     {
-      "trace_a_name": "seed-api-endpoint-rename/run-3",
-      "trace_b_name": "seed-api-endpoint-rename/run-5",
+      "trace_a_name": "api-endpoint-rename/run-3",
+      "trace_b_name": "api-endpoint-rename/run-5",
       "prompts_hash": "0d3fde7a1e0a12d79d6337361b6328c5d90afabb6e861fc09614f773957f67be",
       "summary": "Run-3 used search to enumerate endpoint definitions across the codebase; run-5 used no discovery tool at all and went directly to the known route file.",
       "classification": "variance",
       "likely_cause": "Cross-strategy comparison between the most-cautious (search-first) and least-cautious (assume-known) approaches in this baseline. Both terminate at write_file; the divergence is in the discovery step, not in the edit step itself."
     },
     {
-      "trace_a_name": "seed-api-endpoint-rename/run-1",
-      "trace_b_name": "seed-api-endpoint-rename/run-2",
+      "trace_a_name": "api-endpoint-rename/run-1",
+      "trace_b_name": "api-endpoint-rename/run-2",
       "prompts_hash": "4843efd8d3e6d0dec791f76136cfa7b0a538fd59051885b54347a46ca79d751f",
       "summary": "Both runs follow the identical grep → read_file → write_file → write_file sequence. Within-strategy reproducibility check.",
       "classification": "variance",
       "likely_cause": "Within-strategy stability check. The agent behaves consistently across multiple invocations when it picks the grep-first strategy, so any divergence observed against runs 3/4/5 is attributable to strategy choice rather than nondeterminism within one strategy."
     },
     {
-      "trace_a_name": "seed-auth-migration-md5-to-bcrypt/before-1",
-      "trace_b_name": "seed-auth-migration-md5-to-bcrypt/after-prompt-change",
+      "trace_a_name": "auth-migration-md5-to-bcrypt/before-1",
+      "trace_b_name": "auth-migration-md5-to-bcrypt/after-prompt-change",
       "prompts_hash": "cfd8b9d75bcd45c942cc9c4f69aae64132737ad40531bd60381e9add87fdc7bf",
       "summary": "Run before-1 reads the password module, searches for every MD5 call site, reads each, and rewrites them. The after-prompt-change run reads only the password module and rewrites it, omitting the search step that previously enumerated other call sites.",
       "classification": "regression",
       "likely_cause": "The prompt change appears to have removed the directive that signaled comprehensive call-site updates were needed. Because the search step was load-bearing (it surfaced src/auth/verify.go and src/migration/users.go), dropping it leaves MD5 references in place at those call sites — a silent quality drop that compiles fine but is functionally incorrect. Recommend reinstating the discovery-then-edit pattern in the prompt."
     },
     {
-      "trace_a_name": "seed-auth-migration-md5-to-bcrypt/before-1",
-      "trace_b_name": "seed-auth-migration-md5-to-bcrypt/before-2",
+      "trace_a_name": "auth-migration-md5-to-bcrypt/before-1",
+      "trace_b_name": "auth-migration-md5-to-bcrypt/before-2",
       "prompts_hash": "54c0dc58a2aef5e78af7766870242b090754795842d02e97794cfe7a71623cec",
       "summary": "Both runs follow the identical read → search → read → write → write sequence. The agent reproduces the discovery-first migration consistently across pre-change invocations.",
       "classification": "variance",
       "likely_cause": "Within-baseline reproducibility check. The pre-change prompt elicits the same comprehensive migration shape every time, so the divergence observed in after-prompt-change is fully attributable to the prompt edit rather than to nondeterminism."
     },
     {
-      "trace_a_name": "seed-new-endpoint-with-tests/run-1",
-      "trace_b_name": "seed-new-endpoint-with-tests/run-4",
+      "trace_a_name": "new-endpoint-with-tests/run-1",
+      "trace_b_name": "new-endpoint-with-tests/run-4",
       "prompts_hash": "baac38ffdad61cd135ea21f616e97c5dbff9ac4edd5eb9db9e0c161ae82d1a07",
       "summary": "Run-1 added the /preferences route in a single write to the routes file. Run-4 added the route AND wrote a companion test file (src/routes/users_test.go) that did not exist in run-1.",
       "classification": "additive",
       "likely_cause": "The agent has adopted a test-first or test-alongside pattern that was absent from the baseline runs. This is additive behavior rather than a regression: the original route-addition capability is preserved, and a new test-writing capability has been layered on top. Worth verifying that the test file exercises the new endpoint and isn't just a stub."
     },
     {
-      "trace_a_name": "seed-new-endpoint-with-tests/run-4",
-      "trace_b_name": "seed-new-endpoint-with-tests/run-5",
+      "trace_a_name": "new-endpoint-with-tests/run-4",
+      "trace_b_name": "new-endpoint-with-tests/run-5",
       "prompts_hash": "bb9d883ca9deaabfbe7499acc1b48483f158c67b6306addee2e3a20f0e48c643",
       "summary": "Both runs use the new route-plus-test pattern consistently: read the routes file, add the new route, then create the companion test file. The test-alongside pattern is stable across multiple invocations once the agent adopted it.",
       "classification": "variance",
       "likely_cause": "Post-adoption stability check. The agent has settled on the test-alongside workflow, suggesting either a stable prompt change or a learned-preference for the new pattern. No further divergence within the post-adoption cohort."
     },
     {
-      "trace_a_name": "seed-new-endpoint-with-tests/run-1",
-      "trace_b_name": "seed-new-endpoint-with-tests/run-2",
+      "trace_a_name": "new-endpoint-with-tests/run-1",
+      "trace_b_name": "new-endpoint-with-tests/run-2",
       "prompts_hash": "532723f3eab46d572ad82a9287b55c97de4c50171a2973a1f7005aff85d2a618",
       "summary": "Both runs follow the identical read_file → write_file sequence to add the new route. No divergence between baseline runs.",
       "classification": "variance",
@@ -75,7 +75,7 @@
   ],
   "transcript": [
     {
-      "trace_name": "seed-api-endpoint-rename/run-1",
+      "trace_name": "api-endpoint-rename/run-1",
       "prompts_hash": "46a2d6ad3d5344777d68d16202dd5c6c8728e93437fb4298813a54e56a03bc0a",
       "summary": "The agent used grep to enumerate every /users call site in the codebase before touching any file, then opened the route file and edited it, then edited the client file. This is the cautious 'enumerate-then-edit' pattern: it pays one extra discovery call up front to avoid missing call sites later.",
       "key_decisions": [
@@ -84,7 +84,7 @@
       ]
     },
     {
-      "trace_name": "seed-api-endpoint-rename/run-2",
+      "trace_name": "api-endpoint-rename/run-2",
       "prompts_hash": "46a2d6ad3d5344777d68d16202dd5c6c8728e93437fb4298813a54e56a03bc0a",
       "summary": "The agent used grep to enumerate every /users call site in the codebase before touching any file, then opened the route file and edited it, then edited the client file. This is the cautious 'enumerate-then-edit' pattern: it pays one extra discovery call up front to avoid missing call sites later.",
       "key_decisions": [
@@ -93,7 +93,7 @@
       ]
     },
     {
-      "trace_name": "seed-api-endpoint-rename/run-3",
+      "trace_name": "api-endpoint-rename/run-3",
       "prompts_hash": "22b282422ad3c51fe518ce464ae1f76d01c052c8ecb150b250ed6f034995b576",
       "summary": "The agent invoked the higher-level search tool to locate endpoint definitions across the codebase, then opened the route file and rewrote it. The search step is semantic (search for endpoint-shaped patterns) rather than literal (grep for the string), suggesting the agent reasoned about the task at a structural level.",
       "key_decisions": [
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "trace_name": "seed-api-endpoint-rename/run-4",
+      "trace_name": "api-endpoint-rename/run-4",
       "prompts_hash": "22b282422ad3c51fe518ce464ae1f76d01c052c8ecb150b250ed6f034995b576",
       "summary": "The agent invoked the higher-level search tool to locate endpoint definitions across the codebase, then opened the route file and rewrote it. The search step is semantic (search for endpoint-shaped patterns) rather than literal (grep for the string), suggesting the agent reasoned about the task at a structural level.",
       "key_decisions": [
@@ -111,7 +111,7 @@
       ]
     },
     {
-      "trace_name": "seed-api-endpoint-rename/run-5",
+      "trace_name": "api-endpoint-rename/run-5",
       "prompts_hash": "352a7dfbf2eb2f60c9b85e504caa5430ec1bf8a2bc8868cbd52528b412c5a50d",
       "summary": "The agent skipped all discovery and went straight to read_file on the route file, then write_file on the route file, then write_file on the client file. This 'assume-known-path' pattern is the fastest of the three strategies; it's also the riskiest in a codebase where the assumption doesn't hold.",
       "key_decisions": [
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "trace_name": "seed-auth-migration-md5-to-bcrypt/before-1",
+      "trace_name": "auth-migration-md5-to-bcrypt/before-1",
       "prompts_hash": "c268fa586a85d26a210203be5c1c1893cdd1136fd74405b9c7914e1283144fc2",
       "summary": "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at.",
       "key_decisions": [
@@ -130,7 +130,7 @@
       ]
     },
     {
-      "trace_name": "seed-auth-migration-md5-to-bcrypt/before-2",
+      "trace_name": "auth-migration-md5-to-bcrypt/before-2",
       "prompts_hash": "c268fa586a85d26a210203be5c1c1893cdd1136fd74405b9c7914e1283144fc2",
       "summary": "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at.",
       "key_decisions": [
@@ -140,7 +140,7 @@
       ]
     },
     {
-      "trace_name": "seed-auth-migration-md5-to-bcrypt/before-3",
+      "trace_name": "auth-migration-md5-to-bcrypt/before-3",
       "prompts_hash": "c268fa586a85d26a210203be5c1c1893cdd1136fd74405b9c7914e1283144fc2",
       "summary": "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at.",
       "key_decisions": [
@@ -150,7 +150,7 @@
       ]
     },
     {
-      "trace_name": "seed-auth-migration-md5-to-bcrypt/before-4",
+      "trace_name": "auth-migration-md5-to-bcrypt/before-4",
       "prompts_hash": "c268fa586a85d26a210203be5c1c1893cdd1136fd74405b9c7914e1283144fc2",
       "summary": "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at.",
       "key_decisions": [
@@ -160,7 +160,7 @@
       ]
     },
     {
-      "trace_name": "seed-auth-migration-md5-to-bcrypt/after-prompt-change",
+      "trace_name": "auth-migration-md5-to-bcrypt/after-prompt-change",
       "prompts_hash": "c145f7b588ac2eb59a2f16a4d5999018dbf7e03302dc18c64762fda5eb1c659d",
       "summary": "The agent read passwords.go and rewrote it to use bcrypt, then stopped. No search step, no discovery of other call sites. The prompt change that produced this run appears to have de-emphasized the comprehensive-update requirement; the result is a silent regression where verify.go and migration/users.go still call md5.Sum after the migration.",
       "key_decisions": [
@@ -169,7 +169,7 @@
       ]
     },
     {
-      "trace_name": "seed-new-endpoint-with-tests/run-1",
+      "trace_name": "new-endpoint-with-tests/run-1",
       "prompts_hash": "9a370134fc67a31005d95bd7e22af65b44d05f65af951a75ce4400569bc7d5a0",
       "summary": "The agent read the routes file to understand the existing pattern, then added the new /users/:id/preferences route in a single write. No test file was created; the task was treated as a pure routing change.",
       "key_decisions": [
@@ -178,7 +178,7 @@
       ]
     },
     {
-      "trace_name": "seed-new-endpoint-with-tests/run-2",
+      "trace_name": "new-endpoint-with-tests/run-2",
       "prompts_hash": "9a370134fc67a31005d95bd7e22af65b44d05f65af951a75ce4400569bc7d5a0",
       "summary": "The agent read the routes file to understand the existing pattern, then added the new /users/:id/preferences route in a single write. No test file was created; the task was treated as a pure routing change.",
       "key_decisions": [
@@ -187,7 +187,7 @@
       ]
     },
     {
-      "trace_name": "seed-new-endpoint-with-tests/run-3",
+      "trace_name": "new-endpoint-with-tests/run-3",
       "prompts_hash": "9a370134fc67a31005d95bd7e22af65b44d05f65af951a75ce4400569bc7d5a0",
       "summary": "The agent read the routes file to understand the existing pattern, then added the new /users/:id/preferences route in a single write. No test file was created; the task was treated as a pure routing change.",
       "key_decisions": [
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "trace_name": "seed-new-endpoint-with-tests/run-4",
+      "trace_name": "new-endpoint-with-tests/run-4",
       "prompts_hash": "94e30ed28e9df2e7eca4fecfcf663fc7f7898691f425b40bc0f05825a78fd8a4",
       "summary": "The agent read the routes file to understand the existing pattern, added the new /users/:id/preferences route, then created a companion test file (src/routes/users_test.go) for the new endpoint. The test-alongside step is additive: the route is added either way, and this run also produces a test stub.",
       "key_decisions": [
@@ -206,7 +206,7 @@
       ]
     },
     {
-      "trace_name": "seed-new-endpoint-with-tests/run-5",
+      "trace_name": "new-endpoint-with-tests/run-5",
       "prompts_hash": "94e30ed28e9df2e7eca4fecfcf663fc7f7898691f425b40bc0f05825a78fd8a4",
       "summary": "The agent read the routes file to understand the existing pattern, added the new /users/:id/preferences route, then created a companion test file (src/routes/users_test.go) for the new endpoint. The test-alongside step is additive: the route is added either way, and this run also produces a test stub.",
       "key_decisions": [

@@ -18,8 +18,8 @@ func TestLoadCachesFromJSON_RoundTripsTriageEntry(t *testing.T) {
 
 	cacheJSON := []byte(`{
 		"triage": [{
-			"trace_a_name": "seed-api-endpoint-rename/run-1",
-			"trace_b_name": "seed-api-endpoint-rename/run-2",
+			"trace_a_name": "api-endpoint-rename/run-1",
+			"trace_b_name": "api-endpoint-rename/run-2",
 			"prompts_hash": "test-hash-abc",
 			"summary": "Both runs follow the same read_file -> write_file sequence.",
 			"classification": "variance",
@@ -33,8 +33,8 @@ func TestLoadCachesFromJSON_RoundTripsTriageEntry(t *testing.T) {
 		t.Fatalf("LoadCachesFromJSON: %v", err)
 	}
 
-	traceA := findTraceByName(t, database, "seed-api-endpoint-rename/run-1")
-	traceB := findTraceByName(t, database, "seed-api-endpoint-rename/run-2")
+	traceA := findTraceByName(t, database, "api-endpoint-rename/run-1")
+	traceB := findTraceByName(t, database, "api-endpoint-rename/run-2")
 
 	row, err := database.GetTriageCache(traceA.ID, traceB.ID, "test-hash-abc")
 	if err != nil {
@@ -63,7 +63,7 @@ func TestLoadCachesFromJSON_RoundTripsTranscriptEntry(t *testing.T) {
 	cacheJSON := []byte(`{
 		"triage": [],
 		"transcript": [{
-			"trace_name": "seed-api-endpoint-rename/run-1",
+			"trace_name": "api-endpoint-rename/run-1",
 			"prompts_hash": "transcript-hash-xyz",
 			"summary": "Agent reads a file then writes back a transformed version.",
 			"key_decisions": ["chose read_file before write_file", "no intermediate search needed"]
@@ -75,7 +75,7 @@ func TestLoadCachesFromJSON_RoundTripsTranscriptEntry(t *testing.T) {
 		t.Fatalf("LoadCachesFromJSON: %v", err)
 	}
 
-	trace := findTraceByName(t, database, "seed-api-endpoint-rename/run-1")
+	trace := findTraceByName(t, database, "api-endpoint-rename/run-1")
 
 	row, err := database.GetTranscriptCache(trace.ID, "transcript-hash-xyz")
 	if err != nil {
@@ -108,7 +108,7 @@ func TestLoadCachesFromJSON_RoundTripsEmbeddingEntry(t *testing.T) {
 		"triage": [],
 		"transcript": [],
 		"embeddings": [{
-			"trace_name": "seed-api-endpoint-rename/run-1",
+			"trace_name": "api-endpoint-rename/run-1",
 			"vector": [0.1, 0.2, 0.3, 0.4],
 			"model_name": "voyage-3-lite"
 		}]
@@ -118,7 +118,7 @@ func TestLoadCachesFromJSON_RoundTripsEmbeddingEntry(t *testing.T) {
 		t.Fatalf("LoadCachesFromJSON: %v", err)
 	}
 
-	trace := findTraceByName(t, database, "seed-api-endpoint-rename/run-1")
+	trace := findTraceByName(t, database, "api-endpoint-rename/run-1")
 
 	emb, err := database.GetEmbedding(trace.ID)
 	if err != nil {
@@ -151,17 +151,17 @@ func TestLoadCachesFromJSON_IdempotentOnReRun(t *testing.T) {
 
 	cacheJSON := []byte(`{
 		"triage": [{
-			"trace_a_name": "seed-api-endpoint-rename/run-1",
-			"trace_b_name": "seed-api-endpoint-rename/run-2",
+			"trace_a_name": "api-endpoint-rename/run-1",
+			"trace_b_name": "api-endpoint-rename/run-2",
 			"prompts_hash": "h",
 			"summary": "s", "classification": "variance", "likely_cause": "lc"
 		}],
 		"transcript": [{
-			"trace_name": "seed-api-endpoint-rename/run-1",
+			"trace_name": "api-endpoint-rename/run-1",
 			"prompts_hash": "h", "summary": "ts", "key_decisions": ["kd"]
 		}],
 		"embeddings": [{
-			"trace_name": "seed-api-endpoint-rename/run-1",
+			"trace_name": "api-endpoint-rename/run-1",
 			"vector": [0.1, 0.2], "model_name": "voyage-3-lite"
 		}]
 	}`)
@@ -173,8 +173,8 @@ func TestLoadCachesFromJSON_IdempotentOnReRun(t *testing.T) {
 		t.Fatalf("second LoadCachesFromJSON: %v", err)
 	}
 
-	traceA := findTraceByName(t, database, "seed-api-endpoint-rename/run-1")
-	traceB := findTraceByName(t, database, "seed-api-endpoint-rename/run-2")
+	traceA := findTraceByName(t, database, "api-endpoint-rename/run-1")
+	traceB := findTraceByName(t, database, "api-endpoint-rename/run-2")
 
 	if _, err := database.GetTriageCache(traceA.ID, traceB.ID, "h"); err != nil {
 		t.Errorf("GetTriageCache after re-run: %v", err)
@@ -202,8 +202,8 @@ func TestLoadCachesFromJSON_SkipsUnknownTraceNames(t *testing.T) {
 	cacheJSON := []byte(`{
 		"triage": [
 			{
-				"trace_a_name": "seed-api-endpoint-rename/run-1",
-				"trace_b_name": "seed-api-endpoint-rename/run-2",
+				"trace_a_name": "api-endpoint-rename/run-1",
+				"trace_b_name": "api-endpoint-rename/run-2",
 				"prompts_hash": "good-hash",
 				"summary": "good", "classification": "variance", "likely_cause": "lc"
 			},
@@ -222,8 +222,8 @@ func TestLoadCachesFromJSON_SkipsUnknownTraceNames(t *testing.T) {
 		t.Fatalf("LoadCachesFromJSON should not error on stale entry: %v", err)
 	}
 
-	traceA := findTraceByName(t, database, "seed-api-endpoint-rename/run-1")
-	traceB := findTraceByName(t, database, "seed-api-endpoint-rename/run-2")
+	traceA := findTraceByName(t, database, "api-endpoint-rename/run-1")
+	traceB := findTraceByName(t, database, "api-endpoint-rename/run-2")
 
 	row, err := database.GetTriageCache(traceA.ID, traceB.ID, "good-hash")
 	if err != nil {

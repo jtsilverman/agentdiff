@@ -81,76 +81,76 @@ func buildTriageEntries(t *testing.T, steps map[string][]snapshot.Step) []triage
 	t.Helper()
 
 	pairs := []triagePair{
-		// seed-api-endpoint-rename: three coexisting strategies for the same task
+		// api-endpoint-rename: three coexisting strategies for the same task
 		// (grep-first / search-first / assume-known-path) — every comparison is
 		// healthy variance, no regression.
 		{
-			a:              "seed-api-endpoint-rename/run-1",
-			b:              "seed-api-endpoint-rename/run-3",
+			a:              "api-endpoint-rename/run-1",
+			b:              "api-endpoint-rename/run-3",
 			summary:        "Run-1 used grep to enumerate /users call sites before editing; run-3 used the higher-level search tool to find endpoint definitions. Both arrived at the same set of files but via different discovery primitives.",
 			classification: "variance",
 			likelyCause:    "Both runs are valid completions. The choice between grep (literal pattern match) and search (semantic file query) likely depends on how the agent interpreted the task — whether 'rename across the codebase' implied a literal string sweep or a structured-route enumeration. Healthy strategy variance, not a defect.",
 		},
 		{
-			a:              "seed-api-endpoint-rename/run-1",
-			b:              "seed-api-endpoint-rename/run-5",
+			a:              "api-endpoint-rename/run-1",
+			b:              "api-endpoint-rename/run-5",
 			summary:        "Run-1 used grep before editing; run-5 skipped enumeration entirely and went straight to read_file on the route file. Run-5 assumed the route definition's location instead of confirming it.",
 			classification: "variance",
 			likelyCause:    "Run-5's assume-known-path strategy is risky when the codebase doesn't match the agent's assumption, but in this case both runs ended up editing the same files. The strategy variance is the demo signal — three different exploration depths produce equivalent outcomes here, but in a less stable codebase the assume-known path would silently miss call sites.",
 		},
 		{
-			a:              "seed-api-endpoint-rename/run-3",
-			b:              "seed-api-endpoint-rename/run-5",
+			a:              "api-endpoint-rename/run-3",
+			b:              "api-endpoint-rename/run-5",
 			summary:        "Run-3 used search to enumerate endpoint definitions across the codebase; run-5 used no discovery tool at all and went directly to the known route file.",
 			classification: "variance",
 			likelyCause:    "Cross-strategy comparison between the most-cautious (search-first) and least-cautious (assume-known) approaches in this baseline. Both terminate at write_file; the divergence is in the discovery step, not in the edit step itself.",
 		},
 		{
-			a:              "seed-api-endpoint-rename/run-1",
-			b:              "seed-api-endpoint-rename/run-2",
+			a:              "api-endpoint-rename/run-1",
+			b:              "api-endpoint-rename/run-2",
 			summary:        "Both runs follow the identical grep → read_file → write_file → write_file sequence. Within-strategy reproducibility check.",
 			classification: "variance",
 			likelyCause:    "Within-strategy stability check. The agent behaves consistently across multiple invocations when it picks the grep-first strategy, so any divergence observed against runs 3/4/5 is attributable to strategy choice rather than nondeterminism within one strategy.",
 		},
 
-		// seed-auth-migration-md5-to-bcrypt: before-prompt path uses search to
+		// auth-migration-md5-to-bcrypt: before-prompt path uses search to
 		// enumerate call sites; after-prompt path skips search and silently
 		// misses sites. Classic regression signal.
 		{
-			a:              "seed-auth-migration-md5-to-bcrypt/before-1",
-			b:              "seed-auth-migration-md5-to-bcrypt/after-prompt-change",
+			a:              "auth-migration-md5-to-bcrypt/before-1",
+			b:              "auth-migration-md5-to-bcrypt/after-prompt-change",
 			summary:        "Run before-1 reads the password module, searches for every MD5 call site, reads each, and rewrites them. The after-prompt-change run reads only the password module and rewrites it, omitting the search step that previously enumerated other call sites.",
 			classification: "regression",
 			likelyCause:    "The prompt change appears to have removed the directive that signaled comprehensive call-site updates were needed. Because the search step was load-bearing (it surfaced src/auth/verify.go and src/migration/users.go), dropping it leaves MD5 references in place at those call sites — a silent quality drop that compiles fine but is functionally incorrect. Recommend reinstating the discovery-then-edit pattern in the prompt.",
 		},
 		{
-			a:              "seed-auth-migration-md5-to-bcrypt/before-1",
-			b:              "seed-auth-migration-md5-to-bcrypt/before-2",
+			a:              "auth-migration-md5-to-bcrypt/before-1",
+			b:              "auth-migration-md5-to-bcrypt/before-2",
 			summary:        "Both runs follow the identical read → search → read → write → write sequence. The agent reproduces the discovery-first migration consistently across pre-change invocations.",
 			classification: "variance",
 			likelyCause:    "Within-baseline reproducibility check. The pre-change prompt elicits the same comprehensive migration shape every time, so the divergence observed in after-prompt-change is fully attributable to the prompt edit rather than to nondeterminism.",
 		},
 
-		// seed-new-endpoint-with-tests: 3 baseline runs add the route directly;
+		// new-endpoint-with-tests: 3 baseline runs add the route directly;
 		// 2 later runs adopt a test-first pattern that ALSO writes a test file.
 		// Additive — original capability preserved, new capability layered on top.
 		{
-			a:              "seed-new-endpoint-with-tests/run-1",
-			b:              "seed-new-endpoint-with-tests/run-4",
+			a:              "new-endpoint-with-tests/run-1",
+			b:              "new-endpoint-with-tests/run-4",
 			summary:        "Run-1 added the /preferences route in a single write to the routes file. Run-4 added the route AND wrote a companion test file (src/routes/users_test.go) that did not exist in run-1.",
 			classification: "additive",
 			likelyCause:    "The agent has adopted a test-first or test-alongside pattern that was absent from the baseline runs. This is additive behavior rather than a regression: the original route-addition capability is preserved, and a new test-writing capability has been layered on top. Worth verifying that the test file exercises the new endpoint and isn't just a stub.",
 		},
 		{
-			a:              "seed-new-endpoint-with-tests/run-4",
-			b:              "seed-new-endpoint-with-tests/run-5",
+			a:              "new-endpoint-with-tests/run-4",
+			b:              "new-endpoint-with-tests/run-5",
 			summary:        "Both runs use the new route-plus-test pattern consistently: read the routes file, add the new route, then create the companion test file. The test-alongside pattern is stable across multiple invocations once the agent adopted it.",
 			classification: "variance",
 			likelyCause:    "Post-adoption stability check. The agent has settled on the test-alongside workflow, suggesting either a stable prompt change or a learned-preference for the new pattern. No further divergence within the post-adoption cohort.",
 		},
 		{
-			a:              "seed-new-endpoint-with-tests/run-1",
-			b:              "seed-new-endpoint-with-tests/run-2",
+			a:              "new-endpoint-with-tests/run-1",
+			b:              "new-endpoint-with-tests/run-2",
 			summary:        "Both runs follow the identical read_file → write_file sequence to add the new route. No divergence between baseline runs.",
 			classification: "variance",
 			likelyCause:    "Within-baseline reproducibility check on the pre-adoption cohort. The agent behaves consistently when it picks the route-only pattern, so any divergence observed against runs 4/5 is attributable to the additive pattern shift rather than to nondeterminism.",
@@ -195,7 +195,7 @@ func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []tr
 	// tool sequences in different scenarios (read→write) get scenario-honest
 	// prose, not generic templates.
 
-	// seed-api-endpoint-rename shapes.
+	// api-endpoint-rename shapes.
 	apiGrepFirstSummary := "The agent used grep to enumerate every /users call site in the codebase before touching any file, then opened the route file and edited it, then edited the client file. This is the cautious 'enumerate-then-edit' pattern: it pays one extra discovery call up front to avoid missing call sites later."
 	apiGrepFirstDecisions := []string{
 		"Used grep before any read or write so the edit plan was anchored on the full set of call sites, not just the first one the agent recalled.",
@@ -214,7 +214,7 @@ func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []tr
 		"Edited route and client in two separate writes, suggesting the agent had a pre-formed model of the call-site fanout without explicit discovery.",
 	}
 
-	// seed-auth-migration-md5-to-bcrypt shapes.
+	// auth-migration-md5-to-bcrypt shapes.
 	authBeforeSummary := "The agent read the password module to understand its current shape, then searched the entire src/ tree for MD5 call sites (surfacing src/auth/verify.go and src/migration/users.go), then read verify.go to confirm its hash-comparison pattern, then rewrote both passwords.go and verify.go to use bcrypt. The discovery step is load-bearing: without it, the agent would have updated only the module it was pointed at."
 	authBeforeDecisions := []string{
 		"Inserted a search step between the initial read and the edits, treating the task as requiring comprehensive call-site updates rather than a single-file rewrite.",
@@ -228,7 +228,7 @@ func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []tr
 		"Edited only the file the prompt directly named, treating the task as a single-file rewrite rather than a codebase-wide migration.",
 	}
 
-	// seed-new-endpoint-with-tests shapes.
+	// new-endpoint-with-tests shapes.
 	newEndpointRouteOnlySummary := "The agent read the routes file to understand the existing pattern, then added the new /users/:id/preferences route in a single write. No test file was created; the task was treated as a pure routing change."
 	newEndpointRouteOnlyDecisions := []string{
 		"Read the routes file before editing to match the existing route-declaration style.",
@@ -243,26 +243,26 @@ func buildTranscriptEntries(t *testing.T, steps map[string][]snapshot.Step) []tr
 	}
 
 	specs := []transcriptSpec{
-		// seed-api-endpoint-rename — runs 1-2 grep-first, runs 3-4 search-first, run-5 assume-known.
-		{traceName: "seed-api-endpoint-rename/run-1", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
-		{traceName: "seed-api-endpoint-rename/run-2", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
-		{traceName: "seed-api-endpoint-rename/run-3", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
-		{traceName: "seed-api-endpoint-rename/run-4", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
-		{traceName: "seed-api-endpoint-rename/run-5", summary: apiAssumeKnownSummary, keyDecisions: apiAssumeKnownDecisions},
+		// api-endpoint-rename — runs 1-2 grep-first, runs 3-4 search-first, run-5 assume-known.
+		{traceName: "api-endpoint-rename/run-1", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
+		{traceName: "api-endpoint-rename/run-2", summary: apiGrepFirstSummary, keyDecisions: apiGrepFirstDecisions},
+		{traceName: "api-endpoint-rename/run-3", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
+		{traceName: "api-endpoint-rename/run-4", summary: apiSearchFirstSummary, keyDecisions: apiSearchFirstDecisions},
+		{traceName: "api-endpoint-rename/run-5", summary: apiAssumeKnownSummary, keyDecisions: apiAssumeKnownDecisions},
 
-		// seed-auth-migration-md5-to-bcrypt — before-1..4 discovery-first, after-prompt-change skips search.
-		{traceName: "seed-auth-migration-md5-to-bcrypt/before-1", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
-		{traceName: "seed-auth-migration-md5-to-bcrypt/before-2", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
-		{traceName: "seed-auth-migration-md5-to-bcrypt/before-3", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
-		{traceName: "seed-auth-migration-md5-to-bcrypt/before-4", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
-		{traceName: "seed-auth-migration-md5-to-bcrypt/after-prompt-change", summary: authAfterSummary, keyDecisions: authAfterDecisions},
+		// auth-migration-md5-to-bcrypt — before-1..4 discovery-first, after-prompt-change skips search.
+		{traceName: "auth-migration-md5-to-bcrypt/before-1", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "auth-migration-md5-to-bcrypt/before-2", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "auth-migration-md5-to-bcrypt/before-3", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "auth-migration-md5-to-bcrypt/before-4", summary: authBeforeSummary, keyDecisions: authBeforeDecisions},
+		{traceName: "auth-migration-md5-to-bcrypt/after-prompt-change", summary: authAfterSummary, keyDecisions: authAfterDecisions},
 
-		// seed-new-endpoint-with-tests — runs 1-3 route-only, runs 4-5 route + test.
-		{traceName: "seed-new-endpoint-with-tests/run-1", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
-		{traceName: "seed-new-endpoint-with-tests/run-2", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
-		{traceName: "seed-new-endpoint-with-tests/run-3", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
-		{traceName: "seed-new-endpoint-with-tests/run-4", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
-		{traceName: "seed-new-endpoint-with-tests/run-5", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
+		// new-endpoint-with-tests — runs 1-3 route-only, runs 4-5 route + test.
+		{traceName: "new-endpoint-with-tests/run-1", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "new-endpoint-with-tests/run-2", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "new-endpoint-with-tests/run-3", summary: newEndpointRouteOnlySummary, keyDecisions: newEndpointRouteOnlyDecisions},
+		{traceName: "new-endpoint-with-tests/run-4", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
+		{traceName: "new-endpoint-with-tests/run-5", summary: newEndpointWithTestSummary, keyDecisions: newEndpointWithTestDecisions},
 	}
 
 	out := make([]transcriptEntry, 0, len(specs))

@@ -277,6 +277,10 @@ results back into `_design/project/`. The Next.js port chunks
 - Acceptance: home hero communicates FDE value-prop in ≤2 sentences; /about has hireable-me section; copy across home, /about, introduce-me, footer is coherent (no contradictions, one pitch).
 - Tier: C (mostly copy).
 
+**Chunk 15: seed enrichment — key_decision + baseline rename** — add `key_decision` to every trace's metadata in `web/api/seed/seed.go` (so the trace-detail key-decision callout renders on real traces, not just CD mockups); rename the three baselines from slug-prefixed fixture names (`seed-api-endpoint-rename` etc.) to short engineering-style names (Claude proposes, Jake redlines per the option-A pick at chunk 9 wrap); update home page slug-match keys in `app/page.tsx` to track new IDs; regenerate `web/api/seed/seed-cache.json` via `cache_gen_test.go`.
+- Acceptance: `curl /api/baselines` returns 3 baselines with new short names; every trace JSON has non-empty `metadata.key_decision`; trace detail page's `.td-keydecision` block renders for every seeded trace; home cards link to renamed baseline IDs without 404; `go test ./web/api/...` green.
+- Tier: B (seed data + cache regen + slug-match-key drift).
+
 ## Testing chunks
 
 | Chunk | Scenario | Test type |
@@ -295,12 +299,131 @@ results back into `_design/project/`. The Next.js port chunks
 | 12 | tweaks panel toggles persist across reload | unit + manual |
 | 13 | introduce-me surface visible on every page; CTA links work | unit + manual |
 | 14 | home hero + /about + introduce-me + footer copy is coherent | manual review |
+| 15 | trace detail key-decision callout renders + baselines have human names | `go test ./web/api/...` + manual |
 
 ## Current chunk
 
 Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
 
 ## Completed chunks
+
+- **Chunk 15: seed enrichment — key_decision + baseline rename** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Renamed all three seeded baselines by stripping the `seed-` prefix:
+  `seed-api-endpoint-rename` → `api-endpoint-rename`,
+  `seed-auth-migration-md5-to-bcrypt` → `auth-migration-md5-to-bcrypt`,
+  `seed-new-endpoint-with-tests` → `new-endpoint-with-tests`. Short
+  engineering-style names that read as real project state, not fixture
+  data. Added `keyDecision string` field on `traceSpec` in
+  `web/api/seed/seed.go`; populated `metadata.key_decision` per trace
+  (one short sentence describing the load-bearing choice — e.g. run-1
+  of api-endpoint-rename: "Ran grep before touching any file, anchoring
+  the edit set on the literal /users string."). Updated `seed_test.go`:
+  flipped the `HasPrefix("seed-")` assertion to an explicit
+  expected-names allowlist (api-endpoint-rename /
+  auth-migration-md5-to-bcrypt / new-endpoint-with-tests); added new
+  `TestSeed_TracesHaveKeyDecisionMetadata` (every trace has non-empty
+  metadata.key_decision under every baseline). Sed-replaced all
+  `seed-X/...` trace-name references in `cache_gen_test.go` and
+  `cache_load_test.go` (13 sites across the two files). Regenerated
+  `web/api/seed/seed-cache.json` via
+  `go test -tags genseed ./web/api/seed/ -run TestGenerateSeedCache`
+  → 9 triage + 15 transcript entries with new trace names; 0
+  embeddings (same Option-b path as chunk 2: `VOYAGE_API_KEY` unset
+  locally, Fly binary regenerates lazily on miss). `Examples.tsx`
+  untouched — its `matchHint` substrings (`api-endpoint-rename` /
+  `auth-migration` / `new-endpoint-with-tests`) still hit the renamed
+  baselines via `.includes()`, so home cards resolve without code
+  changes. Full `go test -count=1 ./web/api/seed/` green (10/10 with
+  the new key_decision test); full `go test ./web/api/...` green; full
+  vitest 156/156 green excluding pre-existing `Nav.test.tsx` import
+  failure; `tsc --noEmit` clean. REFACTOR scan: rewrote every
+  predicted-obsolete trace-name reference in-chunk; nothing left
+  dangling.
+
+- **Chunk 13: Introduce-me persistent surface port** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Per CD's placement decision (footer block over nav-chip or
+  floating-badge — see `_design/project/introduce-me.jsx` PLACEMENTS
+  table), the introduce-me surface lives inside `SiteFooter` so it
+  appears on every page after the product content, not before. Added
+  `.introduce-me` block to `web/frontend/src/components/SiteFooter.tsx`:
+  monogram (J.S. in brand cyan), name + pulsing "available ·
+  forward-deployed eng" pill, the verbatim three-credential CV blurb
+  ($100M+ enterprise data programs / production AI agents / PwC
+  Transfer Pricing AI competition winner), `mailto:` primary CTA, and
+  inline LinkedIn + GitHub links with glyphs. CTA targets pulled
+  from CD design: `mailto:jakesilverman.pro@gmail.com` (Jake's
+  professional inbox, not the session `userEmail`),
+  `linkedin.com/in/jacob-silverman1/`, `github.com/jtsilverman`.
+  Footer brand row's `/docs` and `/changelog` links wired to real
+  routes (were pointing at `/about` placeholder). Mounted `SiteFooter`
+  on `app/baselines/[id]/page.tsx` — every other page already had it,
+  baseline detail was the only gap. Appended ~140 lines of
+  introduce-me CSS to `globals.css` (`.introduce-me`,
+  `.introduce-me-inner`, `.introduce-me-identity`,
+  `.introduce-me-monogram`, `.introduce-me-text`,
+  `.introduce-me-name-row`, `.introduce-me-name`,
+  `.introduce-me-role-tag`, `.introduce-me-role-dot` +
+  `@keyframes introduceMePulse`, `.introduce-me-blurb`,
+  `.introduce-me-ctas`, `.introduce-me-primary`,
+  `.introduce-me-elsewhere`, `.introduce-me-link`, with two responsive
+  breakpoints at ≤900px and ≤540px). Tests: new
+  `SiteFooter.test.tsx` (2 vitest+RTL assertions — identity + blurb
+  text render; mailto/LinkedIn/GitHub `href` attrs match expected,
+  external links carry `target="_blank"`). Full vitest 156/156 green
+  excluding pre-existing `Nav.test.tsx`; `tsc --noEmit` clean.
+  REFACTOR scan: no dead code obsoleted (placement is purely
+  additive). Decision: CTA email is `jakesilverman.pro@gmail.com` per
+  the CD design rather than the session `userEmail`
+  (`jtsilverman8@gmail.com`); flagged at chunk-kickoff. Open
+  Question `FDE contact CTA target` resolved to: email primary,
+  LinkedIn + GitHub secondary (no Calendly in the v1).
+
+- **Chunk 12: Tweaks panel port** — Shipped 2026-05-27 (awaiting commit). Tier B.
+  Ported `_design/project/tweaks-{app,panel}.jsx` into a Next.js
+  client component at `web/frontend/src/components/Tweaks.tsx`. The
+  CD design assumed a `postMessage`-based host protocol (edit-mode
+  plumbing for the Claude Design editor — `__activate_edit_mode` /
+  `__edit_mode_set_keys` etc.); per the spec caveat that protocol is
+  stripped entirely and replaced with `localStorage` persistence
+  (key `agentdiff:tweaks`). Three tweaks shipped: card density
+  (compact / regular / spacious — wired to `body[data-density="…"]`),
+  accent color (4 chip swatches — wired to `--accent` / `--accent-faint`
+  / `--accent-glow` on document root), background tone (cool /
+  neutral / warm — wired to `--bg` / `--bg-2` / `--surface` /
+  `--border` on document root). Floating launcher button at
+  `position:fixed; right:16px; bottom:16px` (per the chunk-12 Open
+  Question resolution: floating button, not footer link or keyboard
+  shortcut); clicking opens the light-glass panel (kept the CD
+  design's intentional light aesthetic so the panel reads as a
+  distinct site-wide settings surface against the dark app shell).
+  Mounted once in `app/layout.tsx` so it appears on every page,
+  including baseline detail. Defaults match existing CSS tokens
+  (density=regular, accent=#22d3ee, bgTone=cool) so first paint is
+  unchanged for new visitors; returning visitors hydrate via useEffect
+  on mount — brief default-theme flash possible for non-default
+  stored values (decision: skipped inline pre-hydration script for
+  this chunk's scope, flagged inline). Appended ~190 lines to
+  `globals.css`: `.twk-launcher`, `.twk-panel`, `.twk-hd`, `.twk-x`,
+  `.twk-body`, `.twk-row`, `.twk-lbl`, `.twk-sect`, `.twk-seg`,
+  `.twk-seg-thumb`, `.twk-chips`, `.twk-chip`, plus the full
+  `body[data-density="compact"]` and `body[data-density="spacious"]`
+  variant blocks (compact: tighter `.ex-card-*` padding, `.tl-row`
+  font-size shrink, `.money-card` / `.concept-card` gap reductions;
+  spacious: roomier paddings, larger graph height, larger card
+  titles). Tests: 5 new vitest+RTL assertions in
+  `Tweaks.test.tsx` — launcher opens panel; density choice persists
+  to localStorage + applies `data-density` to body; hydration from
+  pre-set localStorage applies density + `--accent` + `--bg` on
+  mount; accent radio applies `--accent` on document root; close
+  button removes the dialog. **`test/setup.ts` shim added**: the
+  Claude Code harness intercepts node's `globalThis.localStorage`
+  with a stub missing `.clear/.setItem/.getItem` (vanilla `node`
+  repl returns a fully-functional jsdom localStorage); installed a
+  Map-backed `Storage` shim before any test runs so suites that
+  rely on persistent state behave the same in both environments.
+  Full vitest 156/156 green excluding pre-existing `Nav.test.tsx`;
+  `tsc --noEmit` clean. REFACTOR scan: no dead code obsoleted (the
+  Tweaks surface is entirely new).
 
 - **Chunk 8: /diff page port** — Shipped 2026-05-27 (awaiting commit). Tier B.
   Ported `_design/project/diff.{html,jsx,css}` into
@@ -653,15 +776,17 @@ Chunk 9 — Trace detail page port (blocks on `_design/project/trace-detail.*`).
   Chunk 2 ships the column, Chunk 4 pulls from it directly. No LLM
   generation needed.
 - Tweaks panel: does it live behind a footer link, a floating button,
-  or a keyboard shortcut? **Recommendation:** floating button (matches
-  the design's `tweaks-panel.jsx` posture). Confirm at Chunk 12
-  kickoff.
+  or a keyboard shortcut? **Resolved (Chunk 12):** floating button at
+  bottom-right per the recommendation. Mounted in root layout so it
+  appears on every page including baseline detail.
 - FDE contact CTA target: email, Calendly, LinkedIn, or all three?
-  Need Jake's pick at Chunk 13 kickoff (introduce-me port). Chunk 14
-  copy pass propagates the same choice across home / about / footer.
+  **Resolved (Chunk 13):** email primary (`mailto:jakesilverman.pro@gmail.com`)
+  + LinkedIn + GitHub secondary; no Calendly in v1. Chunk 14 copy
+  pass propagates the same set across home / about / footer.
 - Introduce-me placement (nav chip / floating badge / footer block):
-  defer to Claude Design's recommendation (Prompt 6). Re-confirm at
-  Chunk 13 kickoff against the CD output.
+  **Resolved (Chunk 13):** footer block per CD's `introduce-me.jsx`
+  PLACEMENTS table — visible after product content, not before;
+  shared dark-tool aesthetic; doesn't crowd nav.
 - `web/api/seed/seed-cache.json` was regenerated at chunk 2 with 0
   embedding entries because `VOYAGE_API_KEY` was unset locally;
   triage + transcript halves are correct. Before ship, either: (a)

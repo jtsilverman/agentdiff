@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/about', label: 'About', match: (p: string) => p.startsWith('/about') },
   { href: '/traces', label: 'Traces', match: (p: string) => p.startsWith('/traces') },
   { href: '/diff', label: 'Diff', match: (p: string) => p.startsWith('/diff') },
+  { href: '/docs', label: 'Docs', match: (p: string) => p.startsWith('/docs') },
 ];
 
 export default function SiteNav() {

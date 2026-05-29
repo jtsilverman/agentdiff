@@ -18,12 +18,8 @@ The dashboard ships seeded with five canned scenarios so you can click around wi
 git clone https://github.com/jtsilverman/agentdiff
 cd agentdiff
 
-# Terminal 1: API + auto-seed
-cd web/api && go run . -port 8080
-
-# Terminal 2: frontend
-cd web/frontend && npm install && npm run dev
-# open http://localhost:3000
+cd web/api && go run . -port 8080 -site ../site
+# open http://localhost:8080
 ```
 
 You'll land on a "Try these examples" row with the five seeded baselines (stable tool order, tool-order variance, prompt regression, novel-tool discovery, noise outlier). Click any baseline to see the path graph; click a trace in the panel to see overlay coloring and branch-confidence percentages.

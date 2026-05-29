@@ -1,19 +1,12 @@
-.PHONY: dev-api dev-frontend dev test build-api build-frontend
+.PHONY: dev dev-api test build-api
 
 dev-api:
-	cd api && go run . --port 8080
+	cd api && go run . --port 8080 --site ../site
 
-dev-frontend:
-	cd frontend && npm run dev
-
-dev:
-	$(MAKE) dev-api & $(MAKE) dev-frontend
+dev: dev-api
 
 test:
 	cd api && go test ./handlers/ -v
 
 build-api:
 	cd api && CGO_ENABLED=1 go build -o agentdiff-api .
-
-build-frontend:
-	cd frontend && npm run build

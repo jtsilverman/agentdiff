@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentdiff — live demo</title>
+<link rel="stylesheet" href="assets/site.css" />
+<link rel="stylesheet" href="assets/demo.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" id="brandMark"></span>
+      agentdiff
+    </a>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Overview</a>
+      <a class="nav-link active" href="demo.html">Demo</a>
+      <a class="nav-link hide-sm" href="install.html">Install</a>
+      <a class="nav-link hide-sm" href="about.html">About</a>
+      <a class="btn sm primary" href="install.html">Install the CLI <span class="arrow">&rarr;</span></a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <!-- demo hero -->
+  <header class="demo-hero">
+    <div class="wrap">
+      <span class="eyebrow">live demo · seeded data</span>
+      <h1 class="h2" style="margin-top:22px;max-width:20ch;">Pick a story. Watch the product answer it.</h1>
+      <p class="lead" style="margin-top:20px;max-width:60ch;">Three real tasks, each run several times. See the runs as a shape, scrub any one, and pull two apart step by step. The label — variance, regression, additive — attaches only after the story makes sense.</p>
+    </div>
+
+    <!-- scenario tabs -->
+    <div class="wrap">
+      <div class="scn-tabs" id="scnTabs"></div>
+    </div>
+  </header>
+
+  <!-- story framing -->
+  <section class="wrap demo-block" id="storyFrame"></section>
+
+  <!-- PATH GRAPH -->
+  <section class="wrap demo-block">
+    <div class="block-head">
+      <div>
+        <span class="eyebrow">view 01 · path graph</span>
+        <h2 class="h3" style="margin-top:14px;">All runs of this task, merged into one shape.</h2>
+      </div>
+      <p class="block-note" id="graphNote"></p>
+    </div>
+    <div class="panel">
+      <div class="panel-bar">
+        <span class="panel-dots"><i></i><i></i><i></i></span>
+        <span class="panel-title" id="graphBarTitle"></span>
+      </div>
+      <div class="graph-wrap"><div id="demoGraph" class="graph-host"></div></div>
+      <div class="legend" id="graphLegend"></div>
+    </div>
+  </section>
+
+  <!-- INSPECT A RUN -->
+  <section class="wrap demo-block">
+    <div class="block-head">
+      <div>
+        <span class="eyebrow">view 02 · transcript &amp; scrubber</span>
+        <h2 class="h3" style="margin-top:14px;">Inspect a single run, step by step.</h2>
+      </div>
+      <div class="run-picker" id="runPicker"></div>
+    </div>
+
+    <div class="panel inspect">
+      <div class="inspect-grid">
+        <!-- step rail -->
+        <aside class="step-rail">
+          <div class="rail-head">
+            <div class="rail-head-row">
+              <span class="rail-run-name" id="railRunName"></span>
+              <button class="rail-similar-link" id="findSimilar" aria-expanded="false">find similar</button>
+            </div>
+            <span class="mono dim" id="railMeta"></span>
+            <div class="similar-pop" id="similarPop"></div>
+          </div>
+          <div class="rail-list" id="railList"></div>
+          <div class="scrubber">
+            <button class="scrub-btn" id="scrubPrev" aria-label="previous step">&larr;</button>
+            <input type="range" id="scrubRange" min="0" value="0" aria-label="step scrubber" />
+            <button class="scrub-btn" id="scrubNext" aria-label="next step">&rarr;</button>
+          </div>
+        </aside>
+
+        <!-- transcript -->
+        <div class="transcript">
+          <div class="key-decision" id="keyDecision"></div>
+          <div class="promote-row">
+            <button class="promote-btn" id="promoteBtn">Promote to baseline</button>
+            <span class="promote-confirm" id="promoteConfirm"></span>
+          </div>
+          <div class="tx-list" id="txList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIFF -->
+  <section class="wrap demo-block">
+    <div class="block-head">
+      <div>
+        <span class="eyebrow">view 03 · diff &amp; ai triage</span>
+        <h2 class="h3" style="margin-top:14px;">Pull two runs apart, aligned step by step.</h2>
+      </div>
+      <p class="block-note">Two traces, aligned by their tool calls — match, substitute, insert, delete. The triage panel names the change and its likely cause.</p>
+    </div>
+
+    <!-- side selectors -->
+    <div class="diff-switch">
+      <div class="diff-side" id="diffSideA"></div>
+      <div class="diff-vs"><span class="mono">vs</span></div>
+      <div class="diff-side" id="diffSideB"></div>
+    </div>
+
+    <!-- summary pills + triage -->
+    <div class="diff-summary" id="diffSummary"></div>
+    <div class="triage" id="triageBlock"></div>
+
+    <!-- op filter -->
+    <div class="diff-controls">
+      <span class="eyebrow" id="alignCount"></span>
+      <div class="seg" id="opFilter">
+        <button class="seg-btn active" data-op="all">all</button>
+        <button class="seg-btn" data-op="match">matches</button>
+        <button class="seg-btn" data-op="substitute">subs</button>
+        <button class="seg-btn" data-op="insert">insertions</button>
+        <button class="seg-btn" data-op="delete">deletions</button>
+      </div>
+    </div>
+
+    <!-- aligned rows -->
+    <div class="diff-rows" id="diffRows"></div>
+  </section>
+
+  <!-- VIEW 04 · COUNTERFACTUAL REPLAY -->
+  <section class="wrap demo-block">
+    <div class="block-head">
+      <div>
+        <span class="eyebrow">view 04 · counterfactual replay</span>
+        <h2 class="h3" style="margin-top:14px;">Change one step. See where it would have gone.</h2>
+      </div>
+      <p class="block-note" id="cfNote"></p>
+    </div>
+
+    <div class="panel">
+      <div class="cf-grid">
+        <aside class="cf-controls">
+          <span class="eyebrow">rewind to a step</span>
+          <div class="cf-steps" id="cfSteps"></div>
+          <div class="cf-edit" id="cfEdit"></div>
+          <button class="btn primary cf-run" id="cfRun">What if? <span class="arrow">&rarr;</span></button>
+          <p class="cf-caption" id="cfCaption"></p>
+        </aside>
+        <div class="cf-viz">
+          <div class="panel-bar">
+            <span class="panel-dots"><i></i><i></i><i></i></span>
+            <span class="panel-title">overlay · original path <b>+</b> counterfactual branch</span>
+          </div>
+          <div class="graph-wrap"><div id="cfGraph" class="graph-host"></div></div>
+          <div class="legend">
+            <span><i style="background:var(--pg-main,rgba(244,241,236,0.5))"></i> original path</span>
+            <span><i style="background:var(--novel)"></i> counterfactual branch</span>
+            <span class="dim">forks at the step you changed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 05 · EDIT-PROMPT REWRITE -->
+  <section class="wrap demo-block">
+    <div class="block-head">
+      <div>
+        <span class="eyebrow">view 05 · edit-prompt rewrite</span>
+        <h2 class="h3" style="margin-top:14px;">Rewrite the prompt. Re-run the population.</h2>
+      </div>
+      <p class="block-note">One re-run is an anecdote. Rewrite the prompt, run it five times, and watch the whole distribution of behavior move.</p>
+    </div>
+
+    <div class="panel">
+      <div class="pr-top">
+        <div class="pr-prompt">
+          <span class="eyebrow">the user prompt</span>
+          <textarea id="prText" class="pr-textarea" spellcheck="false"></textarea>
+          <div class="pr-actions">
+            <button class="pr-suggest" id="prSuggest">use suggested rewrite</button>
+            <button class="btn primary pr-run" id="prRun">Re-run 5&times; <span class="arrow">&rarr;</span></button>
+          </div>
+        </div>
+        <p class="pr-note" id="prNote"></p>
+      </div>
+
+      <div class="pr-dist">
+        <div class="pr-cluster">
+          <div class="pr-cluster-head"><span class="mono" id="prBeforeLabel"></span><span class="badge neutral" id="prBeforeCount"></span></div>
+          <div class="pr-thumbs" id="prBefore"></div>
+        </div>
+        <div class="pr-shift" id="prShift">
+          <div class="pr-arrow">&rarr;</div>
+          <span class="mono dim">distribution shift</span>
+        </div>
+        <div class="pr-cluster">
+          <div class="pr-cluster-head"><span class="mono" id="prAfterLabel"></span><span class="badge neutral" id="prAfterCount"></span></div>
+          <div class="pr-thumbs masked" id="prAfter"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- next steps -->
+  <section class="wrap demo-block demo-foot-cta">
+    <div>
+      <span class="eyebrow">your turn</span>
+      <h2 class="h3" style="margin-top:14px;max-width:24ch;">Point agentdiff at your own runs.</h2>
+    </div>
+    <a class="btn primary" href="install.html">Install the CLI <span class="arrow">&rarr;</span></a>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand-cell">
+        <div class="foot-brand"><span class="brand-mark" id="footMark"></span> agentdiff</div>
+        <p class="foot-tag">A trace recorder &amp; regression detector for AI agents. Built by Jake Silverman.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="index.html">Overview</a>
+        <a href="install.html">Install</a>
+        <a href="demo.html">Live demo</a>
+      </div>
+      <div class="foot-col">
+        <h5>More</h5>
+        <a href="about.html">About Jake</a>
+        <a href="https://github.com/jtsilverman" target="_blank" rel="noopener">GitHub</a>
+        <a href="mailto:jakesilverman.pro@gmail.com">Email</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> agentdiff</span>
+      <span>npm i -g agentdiff</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/data.js"></script>
+<script src="assets/pathgraph.js"></script>
+<script src="assets/site.js"></script>
+<script>
+  (function () {
+    const svg = '<svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="4.5" cy="11" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="4.6" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="17.4" r="2.4" fill="currentColor" opacity="0.55"/>' +
+      '<path d="M6.6 9.8 L15.6 5.4 M6.6 12.2 L15.6 16.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+      '</svg>';
+    document.querySelectorAll('#brandMark, #footMark').forEach(function (e) { e.innerHTML = svg; });
+  })();
+</script>
+<script src="assets/demo.js"></script>
+</body>
+</html>

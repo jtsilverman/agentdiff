@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentdiff — about Jake Silverman</title>
+<link rel="stylesheet" href="assets/site.css" />
+<style>
+.ab-hero { padding: clamp(60px, 10vh, 130px) 0 0; }
+.ab-tag { display: inline-flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12.5px; color: var(--ok); border: 1px solid color-mix(in oklab, var(--ok) 40%, transparent); background: var(--ok-f); border-radius: 999px; padding: 6px 14px; }
+.ab-tag .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--ok); }
+.ab-hero h1 { margin-top: 28px; max-width: 14ch; }
+.ab-hero .lead { max-width: 50ch; margin-top: 24px; }
+
+.sec { padding: clamp(72px, 10vw, 130px) 0; }
+
+/* artifact-first statement */
+.artifact { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.artifact-inner { padding: clamp(60px, 9vw, 110px) 0; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(32px, 6vw, 90px); align-items: start; }
+.artifact h2 { font-size: clamp(26px, 3.2vw, 40px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.12; margin: 0; max-width: 16ch; }
+.artifact p { color: var(--fg-2); font-size: 17px; line-height: 1.65; margin: 0 0 18px; max-width: 60ch; text-wrap: pretty; }
+.artifact p:last-child { margin-bottom: 0; }
+.artifact .lead-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px; font-weight: 500; }
+.artifact .lead-link .arrow { transition: transform 0.25s var(--ease); }
+.artifact .lead-link:hover .arrow { transform: translateX(4px); }
+
+/* bio facts */
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.fact { background: var(--bg); padding: 34px 30px; }
+.fact h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); margin: 0 0 16px; font-weight: 500; }
+.fact p { font-size: 16px; line-height: 1.5; color: var(--fg-2); margin: 0; letter-spacing: -0.01em; }
+.fact p b { color: var(--fg); font-weight: 600; }
+
+/* contact */
+.contact { text-align: center; border-top: 1px solid var(--line); }
+.contact h2 { max-width: 18ch; margin: 0 auto; }
+.contact .lead { max-width: 48ch; margin: 22px auto 0; }
+.contact-links { display: flex; gap: 14px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
+
+@media (max-width: 880px) {
+  .artifact-inner { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><span class="brand-mark" id="brandMark"></span> agentdiff</a>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Overview</a>
+      <a class="nav-link" href="demo.html">Demo</a>
+      <a class="nav-link hide-sm" href="install.html">Install</a>
+      <a class="nav-link hide-sm active" href="about.html">About</a>
+      <a class="btn sm primary" href="mailto:jakesilverman.pro@gmail.com">Email Jake <span class="arrow">&rarr;</span></a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <header class="ab-hero">
+    <div class="wrap">
+      <span class="ab-tag"><span class="dot"></span>Available · forward-deployed eng</span>
+      <h1 class="display" style="font-size:clamp(42px,6.4vw,86px);">Jake Silverman</h1>
+      <p class="lead">Forward-deployed engineer building production AI agents. agentdiff is the work; this page is the footnote.</p>
+    </div>
+  </header>
+
+  <!-- artifact-first statement -->
+  <section class="artifact">
+    <div class="wrap artifact-inner">
+      <h2 class="reveal">The artifact is the argument.</h2>
+      <div class="reveal">
+        <p>You probably landed here from a link, not a job board. So rather than a pitch: the thing you just clicked through — the path graph, the step-aligned diff, the AI triage that tells a regression from healthy variance — is the portfolio.</p>
+        <p>agentdiff exists because testing AI agents with brittle assertions doesn't work: agents take many valid paths to the same outcome. It records what an agent actually did, learns what good looks like for a task, and surfaces the moment a new run quietly diverges. The demo runs on seeded data so anyone can see it work in under five minutes.</p>
+        <a class="lead-link" href="demo.html">See the product working <span class="arrow">&rarr;</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- contact -->
+  <section class="sec contact" style="border-top:none;">
+    <div class="wrap reveal">
+      <span class="eyebrow" style="justify-content:center;margin-bottom:24px;">get in touch</span>
+      <h2 class="h2">If the work resonates, the inbox is open.</h2>
+      <p class="lead">Forward-deployed roles, agent infrastructure, or just comparing notes on testing non-deterministic systems — email is best.</p>
+      <div class="contact-links">
+        <a class="btn primary" href="mailto:jakesilverman.pro@gmail.com">Email Jake <span class="arrow">&rarr;</span></a>
+        <a class="btn" href="https://www.linkedin.com/in/jacob-silverman1/" target="_blank" rel="noopener">LinkedIn</a>
+        <a class="btn" href="https://github.com/jtsilverman" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand-cell">
+        <div class="foot-brand"><span class="brand-mark" id="footMark"></span> agentdiff</div>
+        <p class="foot-tag">A trace recorder &amp; regression detector for AI agents. Built by Jake Silverman.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="index.html">Overview</a>
+        <a href="demo.html">Live demo</a>
+        <a href="install.html">Install</a>
+      </div>
+      <div class="foot-col">
+        <h5>Contact</h5>
+        <a href="mailto:jakesilverman.pro@gmail.com">Email</a>
+        <a href="https://www.linkedin.com/in/jacob-silverman1/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://github.com/jtsilverman" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> agentdiff · Jake Silverman</span>
+      <span>jakesilverman.pro@gmail.com</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script>
+  (function () {
+    const svg = '<svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="4.5" cy="11" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="4.6" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="17.4" r="2.4" fill="currentColor" opacity="0.55"/>' +
+      '<path d="M6.6 9.8 L15.6 5.4 M6.6 12.2 L15.6 16.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+      '</svg>';
+    document.querySelectorAll('#brandMark, #footMark').forEach(function (e) { e.innerHTML = svg; });
+  })();
+</script>
+</body>
+</html>

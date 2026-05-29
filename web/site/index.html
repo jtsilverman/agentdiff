@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentdiff — see what your agent actually did</title>
+<link rel="stylesheet" href="assets/site.css" />
+<style>
+/* ───────── home page ───────── */
+.hero {
+  padding: clamp(64px, 11vh, 132px) 0 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero-eyebrow { justify-content: center; margin-bottom: 30px; }
+.hero h1 { max-width: 17ch; margin: 0 auto; }
+.hero .lead { max-width: 56ch; margin: 28px auto 0; }
+.hero-cta { display: flex; gap: 14px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
+
+/* live product panel */
+.stage {
+  margin-top: clamp(48px, 7vw, 96px);
+  position: relative;
+}
+.panel {
+  background: linear-gradient(180deg, var(--bg-raise), var(--bg));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 50px 120px -50px rgba(0,0,0,0.85), 0 0 0 1px rgba(0,0,0,0.3);
+}
+.panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+}
+.panel-dots { display: flex; gap: 7px; }
+.panel-dots i { width: 11px; height: 11px; border-radius: 99px; background: var(--line-2); display: block; }
+.panel-title { font-family: var(--mono); font-size: 12.5px; color: var(--muted); letter-spacing: -0.01em; }
+.panel-title b { color: var(--fg-2); font-weight: 500; }
+.panel-tag { margin-left: auto; }
+
+.stage-body { display: grid; grid-template-columns: 1fr 312px; }
+.stage-graph { padding: 18px 14px; min-height: 440px; position: relative; }
+.stage-side {
+  border-left: 1px solid var(--line);
+  padding: 26px 26px 30px;
+  background: color-mix(in oklab, var(--bg-deep) 50%, transparent);
+  display: flex;
+  flex-direction: column;
+}
+.stage-side .eyebrow { margin-bottom: 16px; }
+.verdict {
+  border: 1px solid color-mix(in oklab, var(--bad) 45%, transparent);
+  background: var(--bad-f);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.verdict-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.verdict-head .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--bad); text-transform: uppercase; }
+.verdict p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--fg-2); }
+.stage-note { margin-top: auto; padding-top: 22px; color: var(--muted); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
+.stage-note b { color: var(--fg); font-weight: 600; }
+
+.legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 14px 22px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: block; }
+
+/* section scaffold */
+.sec { padding: clamp(88px, 12vw, 168px) 0; }
+.sec-head { max-width: 60ch; }
+.sec-head .eyebrow { margin-bottom: 24px; }
+.sec-head .lead { margin-top: 22px; }
+
+/* one-line pitch band */
+.pitch { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.pitch-inner { padding: clamp(60px, 9vw, 110px) 0; }
+.pitch h2 { max-width: 22ch; }
+.pitch .h2 em { font-style: normal; color: var(--muted); }
+
+/* feature cards (3-col) */
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.fcard { background: var(--bg); padding: 40px 34px 44px; display: flex; flex-direction: column; min-height: 380px; transition: background 0.3s; }
+.fcard:hover { background: var(--bg-raise); }
+.fcard-num { font-family: var(--mono); font-size: 12px; color: var(--dim); letter-spacing: 0.1em; }
+.fcard h3 { margin: 26px 0 14px; }
+.fcard p { color: var(--fg-2); font-size: 15.5px; line-height: 1.55; margin: 0; }
+.fcard-viz { margin-top: auto; padding-top: 30px; }
+
+/* mini-glyph used in feature cards (abstract, monochrome) */
+.glyph { width: 100%; height: 92px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-deep); display: block; }
+
+/* stories */
+.stories { display: flex; flex-direction: column; gap: 1px; background: var(--line); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); }
+.story { background: var(--bg); padding: clamp(30px, 4vw, 52px); display: grid; grid-template-columns: 80px 1fr 220px; gap: clamp(20px, 3vw, 44px); align-items: start; transition: background 0.3s; }
+.story:hover { background: var(--bg-raise); }
+.story-idx { font-family: var(--mono); font-size: 13px; color: var(--dim); padding-top: 4px; }
+.story-q { font-size: clamp(20px, 2.2vw, 28px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.16; margin: 0 0 16px; max-width: 24ch; }
+.story-body { color: var(--fg-2); font-size: 15.5px; line-height: 1.6; margin: 0; max-width: 62ch; text-wrap: pretty; }
+.story-aside { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.story-reads { font-size: 14px; color: var(--muted); line-height: 1.45; border-left: 2px solid var(--line-2); padding-left: 14px; }
+.story-link { font-family: var(--mono); font-size: 12.5px; color: var(--fg); display: inline-flex; align-items: center; gap: 7px; }
+.story-link:hover { gap: 11px; }
+
+/* quote */
+.quote { text-align: center; }
+.quote blockquote { margin: 0 auto; max-width: 24ch; font-size: clamp(30px, 4.4vw, 56px); line-height: 1.08; letter-spacing: -0.035em; font-weight: 600; }
+.quote blockquote em { font-style: normal; color: var(--muted); }
+.quote-cite { margin-top: 34px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); letter-spacing: 0.04em; }
+
+/* FAQ */
+.faq { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(36px, 6vw, 90px); align-items: start; }
+.faq-list { border-top: 1px solid var(--line); }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-q { width: 100%; text-align: left; background: none; border: none; color: var(--fg); font-family: var(--sans); font-size: clamp(17px, 1.6vw, 20px); font-weight: 500; letter-spacing: -0.02em; padding: 26px 44px 26px 0; cursor: pointer; position: relative; display: block; }
+.faq-q::after { content: "+"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 22px; color: var(--muted); font-weight: 300; transition: transform 0.3s var(--ease); }
+.faq-item.open .faq-q::after { transform: translateY(-50%) rotate(45deg); }
+.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s var(--ease); }
+.faq-item.open .faq-a { max-height: 240px; }
+.faq-a p { margin: 0 0 26px; color: var(--fg-2); font-size: 15.5px; line-height: 1.6; max-width: 56ch; }
+
+/* CTA band */
+.cta { text-align: center; border-top: 1px solid var(--line); }
+.cta h2 { max-width: 18ch; margin: 0 auto; }
+.cta .hero-cta { margin-top: 38px; }
+
+@media (max-width: 940px) {
+  .stage-body { grid-template-columns: 1fr; }
+  .stage-side { border-left: none; border-top: 1px solid var(--line); }
+  .stage-graph { min-height: 340px; }
+  .features { grid-template-columns: 1fr; }
+  .story { grid-template-columns: 1fr; gap: 18px; }
+  .story-idx { padding-top: 0; }
+  .faq { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" id="brandMark"></span>
+      agentdiff
+    </a>
+    <div class="nav-links">
+      <a class="nav-link active" href="index.html">Overview</a>
+      <a class="nav-link" href="demo.html">Demo</a>
+      <a class="nav-link hide-sm" href="install.html">Install</a>
+      <a class="nav-link hide-sm" href="about.html">About</a>
+      <a class="btn sm primary" href="demo.html">Try the demo <span class="arrow">&rarr;</span></a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <!-- HERO -->
+  <header class="hero">
+    <div class="wrap">
+      <span class="eyebrow hero-eyebrow">trace recorder · regression detector</span>
+      <h1 class="display">See what your agent actually did.</h1>
+      <p class="lead">agentdiff records every run your AI agent makes, clusters them into what good looks like for a task, and flags the moment a new run quietly diverges — without a single brittle assertion.</p>
+      <div class="hero-cta">
+        <a class="btn primary" href="demo.html">Explore the live demo <span class="arrow">&rarr;</span></a>
+        <a class="btn" href="install.html">Install the CLI</a>
+      </div>
+    </div>
+
+    <div class="wrap-wide stage">
+      <div class="panel reveal">
+        <div class="panel-bar">
+          <span class="panel-dots"><i></i><i></i><i></i></span>
+          <span class="panel-title">agentdiff &nbsp;/&nbsp; baseline <b>support-triage</b> &nbsp;·&nbsp; 5 runs &nbsp;·&nbsp; path graph</span>
+          <span class="panel-tag badge bad"><span class="dot"></span>1 regressed</span>
+        </div>
+        <div class="stage-body">
+          <div class="stage-graph" id="heroGraph"></div>
+          <aside class="stage-side">
+            <span class="eyebrow">ai triage</span>
+            <div class="verdict">
+              <div class="verdict-head">
+                <span class="tag">regression</span>
+                <span class="badge bad"><span class="dot"></span>outcome changed</span>
+              </div>
+              <p>One run dropped the order-history lookup and routed a fraud case to the billing queue. Four earlier runs pulled the history and caught it.</p>
+            </div>
+            <p class="stage-note">Four runs agree on the path. <b>One run skipped a step</b> — and the outcome changed with it. That divergence is the regression, visible as a shape before anyone reads a transcript.</p>
+          </aside>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--pg-main,rgba(244,241,236,0.5))"></i> shared path</span>
+          <span><i style="background:var(--bad)"></i> regressed run</span>
+          <span class="dim">thickness = runs through the step</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ONE-LINE PITCH -->
+  <section class="pitch">
+    <div class="wrap pitch-inner reveal">
+      <span class="eyebrow">the idea</span>
+      <h2 class="h2" style="margin-top:24px;">Agents don't fail with a stack trace. <em>They fail by quietly doing something different.</em> agentdiff makes that difference visible.</h2>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">how it works</span>
+        <h2 class="h2">Three views onto the same runs.</h2>
+        <p class="lead">Record traces, see them as a shape, and pull any two apart step by step. One vocabulary, no dashboards to assemble.</p>
+      </div>
+
+      <div class="features reveal" style="margin-top:52px;">
+        <div class="fcard">
+          <span class="fcard-num">01</span>
+          <h3 class="h3">Path graph</h3>
+          <p>Every run of a task, merged into one network. Nodes are tool calls, edges are transitions, thickness is how many runs took that step. Strategies become shapes you can read at a glance.</p>
+          <div class="fcard-viz"><span class="glyph" data-glyph="path"></span></div>
+        </div>
+        <div class="fcard">
+          <span class="fcard-num">02</span>
+          <h3 class="h3">Diff &amp; triage</h3>
+          <p>Two runs aligned step by step — match, substitute, insert, delete. An AI triage panel names the change: regression, variance, or additive, with the likely cause.</p>
+          <div class="fcard-viz"><span class="glyph" data-glyph="diff"></span></div>
+        </div>
+        <div class="fcard">
+          <span class="fcard-num">03</span>
+          <h3 class="h3">Transcript &amp; scrubber</h3>
+          <p>Inspect any single run up close. A step rail on the left scrubs through context, reasoning, tool calls and outputs on the right — the raw record behind the shape.</p>
+          <div class="fcard-viz"><span class="glyph" data-glyph="scrub"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STORIES -->
+  <section class="sec" style="padding-top:0;">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">what it catches</span>
+        <h2 class="h2">Three questions teams running agents actually ask.</h2>
+        <p class="lead">Each story is one real task, run several times. The product answers the question before you'd need to define a single term.</p>
+      </div>
+
+      <div class="stories reveal" id="storyList" style="margin-top:52px;"></div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section class="sec quote" style="border-top:1px solid var(--line);">
+    <div class="wrap reveal">
+      <blockquote>Stop testing what your agent <em>says.</em> Start watching what it <em>does.</em></blockquote>
+      <div class="quote-cite">— the agentdiff premise</div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="sec" style="border-top:1px solid var(--line);">
+    <div class="wrap faq">
+      <div class="sec-head reveal">
+        <span class="eyebrow">questions</span>
+        <h2 class="h2" style="margin-top:24px;">Good to know.</h2>
+      </div>
+      <div class="faq-list reveal">
+        <div class="faq-item open">
+          <button class="faq-q" aria-expanded="true">What's a baseline?</button>
+          <div class="faq-a"><p>A baseline is the set of runs for one task — "what good looks like." New runs are compared against it. When a run diverges from the baseline in a way that changes the outcome, that's the signal.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">How is this different from evals or unit tests?</button>
+          <div class="faq-a"><p>Assertion-based tests check a fixed expected output. Agents take many valid paths, so those tests are brittle and miss behavioral drift. agentdiff compares the <em>path</em> a run took against its baseline — no expected-output string to maintain.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">What counts as a regression vs. just variance?</button>
+          <div class="faq-a"><p>Variance is different paths that reach the same outcome — usually healthy. A regression is a divergence that changes the outcome, like a dropped step that flips a routing decision. The triage panel makes that call and shows the likely cause.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">How do my traces get in?</button>
+          <div class="faq-a"><p>Install the CLI and pipe runs through an adapter — LangChain, LlamaIndex, or raw JSON. You can also drag a trace file straight into the browser. No SDK rewrite required.</p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">Is the hosted demo using real data?</button>
+          <div class="faq-a"><p>The demo runs on three seeded stories — code review, support triage, and docs generation — so you can see the product working before sending anything of your own. Everything you click is live.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="sec cta">
+    <div class="wrap reveal">
+      <span class="eyebrow center" style="justify-content:center;margin-bottom:26px;">see it run</span>
+      <h2 class="h2">The fastest way to get it is to watch it work.</h2>
+      <div class="hero-cta">
+        <a class="btn primary" href="demo.html">Open the live demo <span class="arrow">&rarr;</span></a>
+        <a class="btn" href="install.html">Install the CLI</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand-cell">
+        <div class="foot-brand"><span class="brand-mark" id="footMark"></span> agentdiff</div>
+        <p class="foot-tag">A trace recorder &amp; regression detector for AI agents. Built by Jake Silverman.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="demo.html">Live demo</a>
+        <a href="install.html">Install</a>
+        <a href="demo.html">Path graph</a>
+        <a href="demo.html">Diff &amp; triage</a>
+      </div>
+      <div class="foot-col">
+        <h5>More</h5>
+        <a href="about.html">About Jake</a>
+        <a href="https://github.com/jtsilverman" target="_blank" rel="noopener">GitHub</a>
+        <a href="mailto:jakesilverman.pro@gmail.com">Email</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> agentdiff</span>
+      <span>npm i -g agentdiff</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/data.js"></script>
+<script src="assets/pathgraph.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/glyphs.js"></script>
+<script>
+  // brand mark
+  (function () {
+    const svg = '<svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="4.5" cy="11" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="4.6" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="17.4" r="2.4" fill="currentColor" opacity="0.55"/>' +
+      '<path d="M6.6 9.8 L15.6 5.4 M6.6 12.2 L15.6 16.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+      '</svg>';
+    document.querySelectorAll('#brandMark, #footMark').forEach(function (e) { e.innerHTML = svg; });
+  })();
+
+  // hero path graph — regression story, looping draw-in
+  (function () {
+    const scn = AD.scenarioById('support-triage-double-charge');
+    const trie = AD.buildTrie(scn);
+    AD.renderPathGraph(document.getElementById('heroGraph'), trie, { loop: true, compact: true, playWhenVisible: true });
+  })();
+
+  // stories list
+  (function () {
+    const host = document.getElementById('storyList');
+    if (!host) return;
+    AD.scenarios.forEach(function (s, i) {
+      const a = document.createElement('a');
+      a.className = 'story';
+      a.href = 'demo.html#' + s.id;
+      a.innerHTML =
+        '<div class="story-idx">' + String(i + 1).padStart(2, '0') + '</div>' +
+        '<div><h3 class="story-q">' + s.question + '</h3><p class="story-body">' + s.plain + '</p></div>' +
+        '<div class="story-aside">' +
+          '<span class="story-reads">' + s.readsAs + '</span>' +
+          '<span class="story-link">Open in demo &rarr;</span>' +
+        '</div>';
+      host.appendChild(a);
+    });
+  })();
+</script>
+</body>
+</html>

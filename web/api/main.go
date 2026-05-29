@@ -18,6 +18,7 @@ import (
 func main() {
 	port := flag.Int("port", 8080, "HTTP server port")
 	dbPath := flag.String("db", "agentdiff.db", "SQLite database path")
+	sitePath := flag.String("site", "../site", "Static site directory served at /")
 	flag.Parse()
 
 	database, err := db.NewDB(*dbPath)
@@ -71,6 +72,9 @@ func main() {
 	r.Use(middleware.Logging)
 
 	RegisterRoutes(r, database, triager, summarizer, counterfactualer, editPrompter, embedder, rateLimit)
+
+	// Serve the static site at /. Chi matches /api/* first via specificity.
+	r.Handle("/*", http.FileServer(http.Dir(*sitePath)))
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("agentdiff-web listening on %s", addr)

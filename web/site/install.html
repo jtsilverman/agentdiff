@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentdiff — install &amp; send traces</title>
+<link rel="stylesheet" href="assets/site.css" />
+<style>
+.inst-hero { padding: clamp(56px, 9vh, 110px) 0 0; }
+.inst-hero h1 { max-width: 16ch; }
+.inst-hero .lead { max-width: 54ch; margin-top: 24px; }
+
+.sec { padding: clamp(72px, 10vw, 130px) 0; }
+
+/* install command */
+.cmd { display: flex; align-items: center; gap: 16px; margin-top: 38px; flex-wrap: wrap; }
+.cmd-box { display: inline-flex; align-items: center; gap: 16px; background: var(--bg-deep); border: 1px solid var(--line-2); border-radius: 999px; padding: 14px 14px 14px 24px; font-family: var(--mono); font-size: 15px; }
+.cmd-box .sigil { color: var(--dim); }
+.cmd-box code { color: var(--fg); }
+.copy-btn { border: 1px solid var(--line-2); background: var(--surface); color: var(--fg-2); border-radius: 999px; padding: 8px 16px; font-family: var(--mono); font-size: 12.5px; cursor: pointer; transition: all 0.2s; }
+.copy-btn:hover { border-color: var(--line-hi); color: var(--fg); }
+.copy-btn.done { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 40%, transparent); }
+
+/* quickstart steps */
+.qs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.qs-step { background: var(--bg); padding: 34px 30px 36px; display: flex; flex-direction: column; }
+.qs-n { font-family: var(--mono); font-size: 12px; color: var(--dim); letter-spacing: 0.1em; }
+.qs-step h3 { margin: 22px 0 10px; }
+.qs-step p { color: var(--fg-2); font-size: 15px; line-height: 1.55; margin: 0 0 22px; }
+.code { background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--fg-2); overflow-x: auto; margin-top: auto; }
+.code .k { color: var(--fg); }
+.code .c { color: var(--dim); }
+.code .s { color: var(--muted); }
+
+/* adapters */
+.adapters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.adapter { border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 26px 28px; background: var(--bg-raise); transition: border-color 0.25s; }
+.adapter:hover { border-color: var(--line-2); }
+.adapter h4 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; }
+.adapter .sub { font-family: var(--mono); font-size: 11.5px; color: var(--dim); margin-bottom: 18px; }
+.adapter .code { font-size: 12px; }
+
+/* dropzone */
+.upload { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: center; }
+.dropzone { border: 1.5px dashed var(--line-hi); border-radius: var(--radius-lg); padding: 52px 36px; text-align: center; transition: all 0.25s; background: var(--bg-raise); cursor: pointer; }
+.dropzone.over { border-color: var(--fg); background: var(--surface-2); }
+.dropzone .dz-icon { width: 46px; height: 46px; margin: 0 auto 20px; border: 1.5px solid var(--line-hi); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.dropzone h4 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
+.dropzone p { color: var(--muted); font-size: 14px; margin: 0; }
+.dropzone .mono { color: var(--dim); font-size: 12px; margin-top: 16px; display: block; }
+.dz-result { margin-top: 20px; border: 1px solid color-mix(in oklab, var(--ok) 40%, transparent); background: var(--ok-f); border-radius: var(--radius-sm); padding: 14px 16px; text-align: left; display: none; }
+.dz-result.show { display: block; }
+.dz-result .mono { color: var(--ok); margin: 0; font-size: 12.5px; }
+.dz-result .det { color: var(--fg-2); font-size: 13px; margin: 6px 0 0; }
+
+.cta { text-align: center; border-top: 1px solid var(--line); }
+.cta h2 { max-width: 18ch; margin: 0 auto; }
+.cta .cmd { justify-content: center; margin-top: 32px; }
+
+@media (max-width: 880px) {
+  .qs, .adapters { grid-template-columns: 1fr; }
+  .upload { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><span class="brand-mark" id="brandMark"></span> agentdiff</a>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Overview</a>
+      <a class="nav-link" href="demo.html">Demo</a>
+      <a class="nav-link hide-sm active" href="install.html">Install</a>
+      <a class="nav-link hide-sm" href="about.html">About</a>
+      <a class="btn sm primary" href="demo.html">Try the demo <span class="arrow">&rarr;</span></a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <header class="inst-hero">
+    <div class="wrap">
+      <span class="eyebrow">install &amp; use</span>
+      <h1 class="display" style="font-size:clamp(40px,6vw,80px);margin-top:24px;">Send your first trace in two minutes.</h1>
+      <p class="lead">Install the CLI, wrap your agent with an adapter, and runs start landing in baselines. No SDK rewrite, no expected-output strings to maintain.</p>
+      <div class="cmd">
+        <div class="cmd-box"><span class="sigil">$</span> <code>npm i -g agentdiff</code> <button class="copy-btn" data-copy="npm i -g agentdiff">copy</button></div>
+        <a class="btn" href="demo.html">See it running first <span class="arrow">&rarr;</span></a>
+      </div>
+    </div>
+  </header>
+
+  <!-- quickstart -->
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head reveal" style="max-width:60ch;">
+        <span class="eyebrow">quickstart</span>
+        <h2 class="h2" style="margin-top:22px;">Three steps to a baseline.</h2>
+      </div>
+      <div class="qs reveal" style="margin-top:48px;">
+        <div class="qs-step">
+          <span class="qs-n">01</span>
+          <h3 class="h3">Install</h3>
+          <p>Grab the CLI from npm. It ships the recorder and the local viewer.</p>
+          <pre class="code"><span class="c"># global install</span>
+<span class="k">npm</span> i -g agentdiff
+<span class="k">agentdiff</span> login</pre>
+        </div>
+        <div class="qs-step">
+          <span class="qs-n">02</span>
+          <h3 class="h3">Record runs</h3>
+          <p>Wrap your agent invocation. Every tool call and result is captured as a trace.</p>
+          <pre class="code"><span class="k">import</span> { record } <span class="k">from</span> <span class="s">'agentdiff'</span>
+
+<span class="k">await</span> record(<span class="s">'pr-review'</span>, () =&gt;
+  agent.run(task))</pre>
+        </div>
+        <div class="qs-step">
+          <span class="qs-n">03</span>
+          <h3 class="h3">Diff &amp; triage</h3>
+          <p>After a few runs you have a baseline. New runs diff against it automatically.</p>
+          <pre class="code"><span class="k">agentdiff</span> diff pr-review \
+  --against baseline
+<span class="c"># → variance · no regression</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- adapters -->
+  <section class="sec" style="padding-top:0;">
+    <div class="wrap">
+      <div class="sec-head reveal" style="max-width:60ch;">
+        <span class="eyebrow">adapters</span>
+        <h2 class="h2" style="margin-top:22px;">Bring traces from where they already live.</h2>
+        <p class="lead" style="margin-top:20px;">agentdiff reads the shape of a run, not your framework. Pipe in from the big two, or hand it raw JSON.</p>
+      </div>
+      <div class="adapters reveal" style="margin-top:48px;">
+        <div class="adapter">
+          <h4>LangChain</h4>
+          <div class="sub">callback handler</div>
+          <pre class="code"><span class="k">from</span> agentdiff <span class="k">import</span> Tracer
+chain.run(input,
+  callbacks=[<span class="k">Tracer</span>(<span class="s">"pr-review"</span>)])</pre>
+        </div>
+        <div class="adapter">
+          <h4>LlamaIndex</h4>
+          <div class="sub">instrumentation handler</div>
+          <pre class="code"><span class="k">from</span> agentdiff <span class="k">import</span> handler
+Settings.callback_manager = \
+  CallbackManager([<span class="k">handler</span>()])</pre>
+        </div>
+        <div class="adapter">
+          <h4>Raw JSON</h4>
+          <div class="sub">any agent, any language</div>
+          <pre class="code"><span class="k">agentdiff</span> push run.json \
+  --baseline pr-review</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- drag-drop upload -->
+  <section class="sec" style="padding-top:0;">
+    <div class="wrap">
+      <div class="upload">
+        <div class="reveal">
+          <span class="eyebrow">drag &amp; drop</span>
+          <h2 class="h2" style="margin-top:22px;">Or just drop a trace in the browser.</h2>
+          <p class="lead" style="margin-top:20px;">Have a single run as JSON? Drop it on the right to see it parsed into steps — no install required. The hosted viewer renders it exactly like a recorded trace.</p>
+        </div>
+        <div class="reveal">
+          <div class="dropzone" id="dropzone">
+            <div class="dz-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 14V4M11 4L7 8M11 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 14v2.5A1.5 1.5 0 0 0 5.5 18h11a1.5 1.5 0 0 0 1.5-1.5V14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </div>
+            <h4>Drop a trace JSON</h4>
+            <p>or click to choose a file</p>
+            <span class="mono">accepts: .json · agentdiff trace schema</span>
+            <input type="file" id="fileInput" accept="application/json,.json" hidden />
+          </div>
+          <div class="dz-result" id="dzResult"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec cta">
+    <div class="wrap reveal">
+      <span class="eyebrow" style="justify-content:center;margin-bottom:24px;">ready</span>
+      <h2 class="h2">Watch it work, then point it at your agents.</h2>
+      <div class="cmd">
+        <a class="btn primary" href="demo.html">Open the live demo <span class="arrow">&rarr;</span></a>
+        <div class="cmd-box"><span class="sigil">$</span> <code>npm i -g agentdiff</code> <button class="copy-btn" data-copy="npm i -g agentdiff">copy</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand-cell">
+        <div class="foot-brand"><span class="brand-mark" id="footMark"></span> agentdiff</div>
+        <p class="foot-tag">A trace recorder &amp; regression detector for AI agents. Built by Jake Silverman.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <a href="index.html">Overview</a>
+        <a href="demo.html">Live demo</a>
+        <a href="install.html">Install</a>
+      </div>
+      <div class="foot-col">
+        <h5>More</h5>
+        <a href="about.html">About Jake</a>
+        <a href="https://github.com/jtsilverman" target="_blank" rel="noopener">GitHub</a>
+        <a href="mailto:jakesilverman.pro@gmail.com">Email</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> agentdiff</span>
+      <span>npm i -g agentdiff</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script>
+  (function () {
+    const svg = '<svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="4.5" cy="11" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="4.6" r="2.4" fill="currentColor"/>' +
+      '<circle cx="17.5" cy="17.4" r="2.4" fill="currentColor" opacity="0.55"/>' +
+      '<path d="M6.6 9.8 L15.6 5.4 M6.6 12.2 L15.6 16.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+      '</svg>';
+    document.querySelectorAll('#brandMark, #footMark').forEach(function (e) { e.innerHTML = svg; });
+  })();
+
+  // copy buttons
+  document.querySelectorAll('.copy-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const t = b.getAttribute('data-copy');
+      navigator.clipboard && navigator.clipboard.writeText(t);
+      const old = b.textContent; b.textContent = 'copied'; b.classList.add('done');
+      setTimeout(function () { b.textContent = old; b.classList.remove('done'); }, 1400);
+    });
+  });
+
+  // dropzone — actually parses a dropped agentdiff trace JSON
+  (function () {
+    const dz = document.getElementById('dropzone');
+    const input = document.getElementById('fileInput');
+    const result = document.getElementById('dzResult');
+    if (!dz) return;
+    function show(file, json) {
+      let steps = (json && json.steps && json.steps.length) || 0;
+      let name = (json && json.name) || file.name;
+      let task = (json && json.metadata && json.metadata.task) || '';
+      let outcome = (json && json.metadata && json.metadata.outcome) || 'unknown';
+      result.className = 'dz-result show';
+      result.innerHTML = '<p class="mono">✓ parsed ' + steps + ' steps · outcome: ' + outcome + '</p>' +
+        '<p class="det"><b>' + name + '</b>' + (task ? ' — ' + task : '') + '</p>';
+    }
+    function handle(file) {
+      const r = new FileReader();
+      r.onload = function () {
+        try { show(file, JSON.parse(r.result)); }
+        catch (e) {
+          result.className = 'dz-result show';
+          result.style.borderColor = 'var(--line-2)'; result.style.background = 'var(--bg-raise)';
+          result.innerHTML = '<p class="mono" style="color:var(--muted)">received ' + file.name + ' — not valid JSON</p>';
+        }
+      };
+      r.readAsText(file);
+    }
+    dz.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () { if (input.files[0]) handle(input.files[0]); });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('over'); });
+    });
+    dz.addEventListener('drop', function (e) {
+      const f = e.dataTransfer.files[0]; if (f) handle(f);
+    });
+  })();
+</script>
+</body>
+</html>
